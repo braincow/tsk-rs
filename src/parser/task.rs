@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use thiserror::Error;
 use anyhow::{bail, Result};
+use uuid::Uuid;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum TaskError {
@@ -17,6 +18,7 @@ pub enum TaskError {
 
 #[derive(Debug)]
 pub struct Task {
+    pub id: Uuid,
     pub description: String,
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
@@ -86,6 +88,7 @@ impl Task {
         }
 
         Ok(Self {
+            id: Uuid::new_v4(),
             description: description,
             tags: ret_tags,
             metadata: ret_metadata,
