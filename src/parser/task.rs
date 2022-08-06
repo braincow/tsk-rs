@@ -2,6 +2,7 @@ use super::lexicon::{Expression, parse};
 
 use std::collections::HashMap;
 
+use serde::{Serialize, Deserialize};
 use thiserror::Error;
 use anyhow::{bail, Result};
 use uuid::Uuid;
@@ -16,7 +17,7 @@ pub enum TaskError {
     MetadataPrefixInvalid(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Task {
     pub id: Uuid,
     pub description: String,
@@ -26,6 +27,16 @@ pub struct Task {
 }
 
 impl Task {
+    pub fn to_yaml_string(&self) -> Result<String> {       
+        let yaml = serde_yaml::to_string(self)?;
+        Ok(yaml)
+    }
+
+    pub fn from_yaml_string(input: &str) -> Result<Self> {
+        let task: Task = serde_yaml::from_str(input)?;
+        return Ok(task)
+    }
+
     pub fn parse_task_descriptor(input: &'static str) -> Result<Self> {
         let (_, expressions) = parse(input)?;
 
@@ -106,6 +117,39 @@ mod tests {
     static MULTIPROJECTINPUT: &str = "this has a @project-name, and a @second-project name";
     static DUPLICATEMETADATAINPUT: &str = "this has %x-fuu:bar definied again with %x-fuu:bar";
     static INVALIDMETADATAKEY: &str = "here is an %invalid:metadata key";
+    static YAMLTESTINPUT: &str = "id: bd6f75aa-8c8d-47fb-b905-d9f7b15c782d\ndescription: some task description here additional text at the end\nproject: project-here\ntags:\n- taghere\n- a-second-tag\nmetadata:\n  x-meta: data\n  x-fuu: bar\n";
+
+    #[test]
+    fn test_from_yaml() {
+        let task = Task::from_yaml_string(YAMLTESTINPUT).unwrap();
+
+        assert_eq!(task.project, Some(String::from("project-here")));
+        assert_eq!(task.description, "some task description here additional text at the end");
+        assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
+        assert_eq!(task.metadata.clone().unwrap().get("x-meta"), Some(&String::from("data")));
+        assert_eq!(task.metadata.clone().unwrap().get("x-fuu"), Some(&String::from("bar")));
+    }
+
+    #[test]
+    fn test_to_yaml() {
+        let mut task = Task::parse_task_descriptor(FULLTESTCASEINPUT).unwrap();
+
+        // for testing we need to know the UUID so create a new one and override autoassigned one
+        let test_uuid = Uuid::parse_str("bd6f75aa-8c8d-47fb-b905-d9f7b15c782d").unwrap();
+        task.id = test_uuid;
+
+        let yaml_string = task.to_yaml_string().unwrap();
+        assert_eq!(yaml_string,
+            format!("id: {}\ndescription: {}\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  x-fuu: {}\n  x-meta: {}\n",
+                task.id,
+                task.description,
+                task.project.unwrap(),
+                task.tags.clone().unwrap().get(0).unwrap(),
+                task.tags.clone().unwrap().get(1).unwrap(),
+                task.metadata.clone().unwrap().get("x-fuu").unwrap(),
+                task.metadata.clone().unwrap().get("x-meta").unwrap(),
+            ));
+    }
 
     #[test]
     fn parse_full_testcase() {
@@ -148,7 +192,6 @@ mod tests {
 
         assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::MetadataPrefixInvalid(String::from("invalid")));
     }
-
 }
 
 // eof
