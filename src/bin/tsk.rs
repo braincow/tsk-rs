@@ -24,6 +24,7 @@ enum Commands {
     /// adds a new task from task description string
     New {
         /// task description string
+        #[clap(allow_hyphen_values = true, multiple = true, value_parser)]
         descriptor: String,
     },
 }
