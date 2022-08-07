@@ -44,8 +44,8 @@ impl Task {
         return Ok(task)
     }
 
-    pub fn from_task_descriptor(input: &'static str) -> Result<Self> {
-        let (_, expressions) = parse(input)?;
+    pub fn from_task_descriptor(input: &String) -> Result<Self> {
+        let expressions = parse(input.to_string())?;
 
         let mut description: String = String::new();
         let mut tags: Vec<String> = vec![];
@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_to_yaml() {
-        let mut task = Task::from_task_descriptor(FULLTESTCASEINPUT).unwrap();
+        let mut task = Task::from_task_descriptor(&FULLTESTCASEINPUT.to_string()).unwrap();
 
         // for testing we need to know the UUID so create a new one and override autoassigned one
         let test_uuid = Uuid::parse_str("bd6f75aa-8c8d-47fb-b905-d9f7b15c782d").unwrap();
@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn parse_full_testcase() {
-        let task = Task::from_task_descriptor(FULLTESTCASEINPUT).unwrap();
+        let task = Task::from_task_descriptor(&FULLTESTCASEINPUT.to_string()).unwrap();
 
         assert_eq!(task.project, Some(String::from("project-here")));
         assert_eq!(task.description, "some task description here additional text at the end");
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn parse_no_expressions() {
-        let task = Task::from_task_descriptor(NOEXPRESSIONSINPUT).unwrap();
+        let task = Task::from_task_descriptor(&NOEXPRESSIONSINPUT.to_string()).unwrap();
 
         assert_eq!(task.project, None);
         assert_eq!(task.description, NOEXPRESSIONSINPUT);
@@ -188,21 +188,21 @@ mod tests {
 
     #[test]
     fn reject_multiple_projects() {
-        let task = Task::from_task_descriptor(MULTIPROJECTINPUT);
+        let task = Task::from_task_descriptor(&MULTIPROJECTINPUT.to_string());
 
         assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::MultipleProjectsNotAllowed);
     }
 
     #[test]
     fn reject_duplicate_metadata() {
-        let task = Task::from_task_descriptor(DUPLICATEMETADATAINPUT);
+        let task = Task::from_task_descriptor(&DUPLICATEMETADATAINPUT.to_string());
 
         assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::IdenticalMetadataKeyNotAllowed(String::from("x-fuu")));
     }
 
     #[test]
     fn require_metadata_prefix() {
-        let task = Task::from_task_descriptor(INVALIDMETADATAKEY);
+        let task = Task::from_task_descriptor(&INVALIDMETADATAKEY.to_string());
 
         assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::MetadataPrefixInvalid(String::from("invalid")));
     }

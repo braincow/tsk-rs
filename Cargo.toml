@@ -2,12 +2,17 @@
 name = "tsk-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Antti Peltonen <antti.peltonen@iki.fi>"]
+description = "A task manager"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.59"
 chrono = { version = "0.4.20", features = ["serde"] }
+clap = { version = "3.2.16", features = ["derive"] }
+config = "0.13.2"
 nom = "7.1.1"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_yaml = "0.9.4"
