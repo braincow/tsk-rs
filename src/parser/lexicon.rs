@@ -133,7 +133,7 @@ pub fn parse(input: String) -> Result<Vec<Expression>> {
 
     match parsed {
         Ok(expressions) => {
-            Ok(expressions.iter().map(|x| Expression::from_prototype(x)).collect::<Vec<Expression>>())
+            Ok(expressions.iter().map(Expression::from_prototype).collect::<Vec<Expression>>())
         },
         Err(error) => bail!(LexiconError::ParserError(error.to_string()))
     }

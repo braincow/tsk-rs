@@ -1,0 +1,7 @@
+#
+# example configuration file for tsk-rs suite
+#
+
+db_path = "test_data"
+
+# eof
