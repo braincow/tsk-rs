@@ -145,22 +145,22 @@ mod tests {
 
     #[test]
     fn nonws_char_allowed() {
-        assert_eq!(nonws_char('a'), true)
+        assert!(nonws_char('a'))
     }
 
     #[test]
     fn nonws_char_whitespace() {
-        assert_ne!(nonws_char(' '), true)
+        assert!(!nonws_char(' '))
     }
 
     #[test]
     fn allowed_meta_character_hyphen() {
-        assert_eq!(allowed_meta_character('-'), true)
+        assert!(allowed_meta_character('-'))
     }
 
     #[test]
     fn allowed_meta_character_whitespace() {
-        assert_ne!(allowed_meta_character(' '), true)
+        assert!(!allowed_meta_character(' '))
     }
 
     #[test]
