@@ -63,7 +63,7 @@ impl Task {
                         description = desc;
                     }
                 },
-                Expression::Hashtag(tag) => {
+                Expression::Tag(tag) => {
                     let new_tag = tag;
                     if !tags.contains(&new_tag) {
                         // add the tag only if it is not already added (drop duplicates silently)

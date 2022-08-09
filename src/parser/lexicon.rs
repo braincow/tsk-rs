@@ -8,7 +8,7 @@ use anyhow::{Result, bail};
 enum ExpressionPrototype<'a> {
     Description(&'a str),
     Project(&'a str),
-    Hashtag(&'a str),
+    Tag(&'a str),
     Metadata {
         key: &'a str,
         value: &'a str
@@ -19,7 +19,7 @@ enum ExpressionPrototype<'a> {
 pub enum Expression {
     Description(String),
     Project(String),
-    Hashtag(String),
+    Tag(String),
     Metadata {
         key: String,
         value: String
@@ -31,7 +31,7 @@ impl Expression {
         match prototype {
             ExpressionPrototype::Description(text) => Expression::Description(String::from(*text)),
             ExpressionPrototype::Project(text) => Expression::Project(String::from(*text)),
-            ExpressionPrototype::Hashtag(text) => Expression::Hashtag(String::from(*text)),
+            ExpressionPrototype::Tag(text) => Expression::Tag(String::from(*text)),
             ExpressionPrototype::Metadata { key, value } => Expression::Metadata { key: String::from(*key), value: String::from(*value) },
         }
     }
@@ -57,7 +57,7 @@ fn metadata_pair(input: &str) -> IResult<&str, (&str, &str)> {
     separated_pair(meta_word, char(':'), meta_word)(input)
 }
 
-fn hashtag(input: &str) -> IResult<&str, &str> {
+fn tag(input: &str) -> IResult<&str, &str> {
     preceded(char('!'), word)(input)
 }
 
@@ -71,7 +71,7 @@ fn metadata(input: &str) -> IResult<&str, (&str, &str)> {
 
 fn directive(input: &str) -> IResult<&str, ExpressionPrototype> {
     alt((
-    map(hashtag, ExpressionPrototype::Hashtag),
+    map(tag, ExpressionPrototype::Tag),
     map(project, ExpressionPrototype::Project),
     map(metadata, |(key, value) | ExpressionPrototype::Metadata {key, value}),
     ))(input)
@@ -189,18 +189,18 @@ mod tests {
     }
 
     #[test]
-    fn hashtag_valid() {
-        assert_eq!(hashtag("!fubar").unwrap(), ("", "fubar"));
+    fn tag_valid() {
+        assert_eq!(tag("!fubar").unwrap(), ("", "fubar"));
     }
 
     #[test]
-    fn hashtag_broken() {
-        assert_eq!(hashtag("!fu bar").unwrap(), (" bar", "fu"));
+    fn tag_broken() {
+        assert_eq!(tag("!fu bar").unwrap(), (" bar", "fu"));
     }
 
     #[test]
-    fn hashtag_broken_noprefix() {
-        assert!(hashtag("asfd").is_err());
+    fn tag_broken_noprefix() {
+        assert!(tag("asfd").is_err());
     }
 
     #[test]
@@ -229,8 +229,8 @@ mod tests {
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("additional text at the end"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "fuu", value: "bar" });
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "x-meta", value: "data" });
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Hashtag("a-second-tag"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Hashtag("taghere"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("a-second-tag"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("taghere"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Project("project-here"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("some task description here"));
     }
