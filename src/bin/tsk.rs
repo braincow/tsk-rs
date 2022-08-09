@@ -26,10 +26,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// adds a new task from task description string
+    #[clap(allow_missing_positional = true)]
     New {
         /// task description string
-        #[clap(allow_hyphen_values = true, multiple = true, value_parser)]
-        descriptor: String,
+        #[clap(raw = true, value_parser)]
+        descriptor: Vec<String>,
     },
     /// display the current configuration of the tsk-rs suite
     Config,
@@ -72,8 +73,9 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Some(Commands::New { descriptor }) => {
-            println!("{}", descriptor);
-            let task = Task::from_task_descriptor(descriptor)?;
+            let desc = descriptor.join(" ");
+            println!("{}", desc);
+            let task = Task::from_task_descriptor(&desc)?;
             let task_pathbuf = settings.db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
             let mut file = File::create(task_pathbuf)?;
             file.write_all(task.to_yaml_string()?.as_bytes())?;
