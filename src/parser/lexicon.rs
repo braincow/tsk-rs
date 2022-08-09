@@ -58,7 +58,7 @@ fn metadata_pair(input: &str) -> IResult<&str, (&str, &str)> {
 }
 
 fn hashtag(input: &str) -> IResult<&str, &str> {
-    preceded(char('#'), word)(input)
+    preceded(char('!'), word)(input)
 }
 
 fn project(input: &str) -> IResult<&str, &str> {
@@ -190,12 +190,12 @@ mod tests {
 
     #[test]
     fn hashtag_valid() {
-        assert_eq!(hashtag("#fubar").unwrap(), ("", "fubar"));
+        assert_eq!(hashtag("!fubar").unwrap(), ("", "fubar"));
     }
 
     #[test]
     fn hashtag_broken() {
-        assert_eq!(hashtag("#fu bar").unwrap(), (" bar", "fu"));
+        assert_eq!(hashtag("!fu bar").unwrap(), (" bar", "fu"));
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn parse_full_testcase() {
-        let input = "some task description here @project-here #taghere #a-second-tag %x-meta:data %fuu:bar additional text at the end";
+        let input = "some task description here @project-here !taghere !a-second-tag %x-meta:data %fuu:bar additional text at the end";
 
         let (leftover, mut meta) = parse_inline(input).unwrap();
 

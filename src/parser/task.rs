@@ -119,7 +119,7 @@ mod tests {
 
     use super::*;
 
-    static FULLTESTCASEINPUT: &str = "some task description here @project-here #taghere #a-second-tag %x-meta:data %x-fuu:bar additional text at the end";
+    static FULLTESTCASEINPUT: &str = "some task description here @project-here !taghere !a-second-tag %x-meta:data %x-fuu:bar additional text at the end";
     static NOEXPRESSIONSINPUT: &str = "some task description here without expressions";
     static MULTIPROJECTINPUT: &str = "this has a @project-name, and a @second-project name";
     static DUPLICATEMETADATAINPUT: &str = "this has %x-fuu:bar definied again with %x-fuu:bar";
