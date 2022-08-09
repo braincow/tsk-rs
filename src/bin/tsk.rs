@@ -1,8 +1,9 @@
-use std::{path::PathBuf, fs::{File, create_dir_all}, io::Write};
+use std::{path::PathBuf, fs::{create_dir_all}, io::Write};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use config::Config;
+use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use tsk_rs::task::Task;
 use directories::ProjectDirs;
@@ -72,21 +73,32 @@ fn main() -> Result<()> {
     let settings: Settings = config.try_deserialize()?;
 
     match &cli.command {
-        Some(Commands::New { descriptor }) => {
-            let desc = descriptor.join(" ");
-            println!("{}", desc);
-            let task = Task::from_task_descriptor(&desc)?;
-            let task_pathbuf = settings.db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
-            let mut file = File::create(task_pathbuf)?;
-            file.write_all(task.to_yaml_string()?.as_bytes())?;
-            file.sync_all()?;
-            println!("Created a task '{}'", task.id);
+        Some(Commands::New { descriptor }) => { 
+            new_task(descriptor.join(" "), &settings)
         },
         Some(Commands::Config) => {
             println!("{:?}", settings);
+            Ok(())
         }
-        None => {}
+        None => {panic!("unknown cli command");}
     }
+}
 
+fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
+    let task = Task::from_task_descriptor(&descriptor)?;
+    let task_pathbuf = settings.db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
+
+    let should_we_block  = true;
+    let options = FileOptions::new()
+        .write(true)
+        .create(true)
+        .append(true);
+    {
+        let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options)?;
+        filelock.file.write_all(task.to_yaml_string()?.as_bytes())?;
+        filelock.file.flush()?;
+        filelock.file.sync_all()?;    
+    }
+    println!("Created a task '{}'", task.id);
     Ok(())
 }
