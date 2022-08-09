@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use config::Config;
 use serde::{Serialize, Deserialize};
-use tsk_rs::parser::task::Task;
+use tsk_rs::task::Task;
 use directories::ProjectDirs;
 
 #[derive(Parser)]

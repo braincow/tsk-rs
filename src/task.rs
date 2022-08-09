@@ -1,4 +1,4 @@
-use super::lexicon::{Expression, parse};
+use crate::parser::lexicon::{Expression, parse};
 
 use std::collections::BTreeMap;
 
