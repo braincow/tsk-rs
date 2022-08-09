@@ -23,7 +23,7 @@ pub struct Task {
     pub description: String,
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
-    pub metadata: Option<BTreeMap<String, String>>,
+    pub metadata: BTreeMap<String, String>,
 }
 
 impl Task {
@@ -31,7 +31,7 @@ impl Task {
         let timestamp = chrono::offset::Utc::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, project: None, tags: None, metadata: Some(metadata) }
+        Self { id: Uuid::new_v4(), description, project: None, tags: None, metadata }
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
@@ -107,7 +107,7 @@ impl Task {
             id: Uuid::new_v4(),
             description,
             tags: ret_tags,
-            metadata: Some(metadata),
+            metadata,
             project: ret_project,
         })
     }
@@ -133,10 +133,10 @@ mod tests {
         assert_eq!(task.project, Some(String::from("project-here")));
         assert_eq!(task.description, "some task description here additional text at the end");
         assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
-        assert_eq!(task.metadata.clone().unwrap().get("x-meta"), Some(&String::from("data")));
-        assert_eq!(task.metadata.clone().unwrap().get("x-fuu"), Some(&String::from("bar")));
+        assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
+        assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
 
-        let timestamp = DateTime::parse_from_rfc3339(task.metadata.unwrap().get("tsk-rs-task-create-time").unwrap()).unwrap();
+        let timestamp = DateTime::parse_from_rfc3339(task.metadata.get("tsk-rs-task-create-time").unwrap()).unwrap();
         assert_eq!(timestamp.year(), 2022);
         assert_eq!(timestamp.month(), 8);
         assert_eq!(timestamp.day(), 6);
@@ -158,9 +158,9 @@ mod tests {
                 task.project.unwrap(),
                 task.tags.clone().unwrap().get(0).unwrap(),
                 task.tags.clone().unwrap().get(1).unwrap(),
-                task.metadata.clone().unwrap().get("tsk-rs-task-create-time").unwrap(),
-                task.metadata.clone().unwrap().get("x-fuu").unwrap(),
-                task.metadata.clone().unwrap().get("x-meta").unwrap(),
+                task.metadata.clone().get("tsk-rs-task-create-time").unwrap(),
+                task.metadata.clone().get("x-fuu").unwrap(),
+                task.metadata.clone().get("x-meta").unwrap(),
             ));
     }
 
@@ -171,8 +171,8 @@ mod tests {
         assert_eq!(task.project, Some(String::from("project-here")));
         assert_eq!(task.description, "some task description here additional text at the end");
         assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
-        assert_eq!(task.metadata.clone().unwrap().get("x-meta"), Some(&String::from("data")));
-        assert_eq!(task.metadata.unwrap().get("x-fuu"), Some(&String::from("bar")));
+        assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
+        assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
     }
 
     #[test]
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(task.description, NOEXPRESSIONSINPUT);
         assert_eq!(task.tags, None);
 
-        assert!(task.metadata.unwrap().get("tsk-rs-task-create-time").is_some());
+        assert!(task.metadata.get("tsk-rs-task-create-time").is_some());
     }
 
     #[test]
