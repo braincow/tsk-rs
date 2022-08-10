@@ -1,12 +1,13 @@
-use std::{path::PathBuf, fs::{create_dir_all}, io::Write};
+use std::{path::PathBuf, fs::{create_dir_all, File}, io::{Write, Read}};
 
-use anyhow::Result;
+use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
 use config::Config;
 use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use tsk_rs::task::Task;
 use directories::ProjectDirs;
+use glob::glob;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -33,6 +34,8 @@ enum Commands {
         #[clap(raw = true, value_parser)]
         descriptor: Vec<String>,
     },
+    /// List all tasks
+    List,
     /// display the current configuration of the tsk-rs suite
     Config,
 }
@@ -79,7 +82,10 @@ fn main() -> Result<()> {
         Some(Commands::Config) => {
             println!("{:?}", settings);
             Ok(())
-        }
+        },
+        Some(Commands::List) => {
+            list_tasks(&settings)
+        },
         None => {panic!("unknown cli command");}
     }
 }
@@ -102,3 +108,21 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     println!("Created a task '{}'", task.id);
     Ok(())
 }
+
+fn list_tasks(settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.db_pathbuf()?.join("*.yaml");
+    for task_filename in glob(task_pathbuf.to_str().unwrap())? {
+        let task: Task;
+        {
+            let mut file = File::open(task_filename?).with_context(|| {"while opening task yaml file for reading"})?;
+            let mut task_yaml: String = String::new();
+            file.read_to_string(&mut task_yaml)?;
+            task = Task::from_yaml_string(&task_yaml)?;
+        }
+        println!("{:?}", task);
+    }
+    
+    Ok(())
+}
+
+// eof
