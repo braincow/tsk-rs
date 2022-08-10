@@ -3,6 +3,6 @@
 #
 
 [data]
-db_path = "test_data"
+db_path = "test_data" # if uncommented defaults to users data directory in the os e.g $HOME/.local/share/tsk-rs
 
 # eof
