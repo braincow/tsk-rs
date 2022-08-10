@@ -1,12 +1,10 @@
-use std::{path::PathBuf, fs::{create_dir_all, File}, io::{Write, Read}};
+use std::{path::PathBuf, fs::File, io::{Write, Read}};
 
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
 use config::Config;
 use file_lock::{FileLock, FileOptions};
-use serde::{Serialize, Deserialize};
-use tsk_rs::task::Task;
-use directories::ProjectDirs;
+use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
 
 #[derive(Parser)]
@@ -38,32 +36,6 @@ enum Commands {
     List,
     /// display the current configuration of the tsk-rs suite
     Config,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Settings {
-    pub db_path: String,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
-
-        Self {
-            db_path: String::from(proj_dirs.data_dir().to_str().unwrap())
-        }
-    }
-}
-
-impl Settings {
-    fn db_pathbuf(&self) -> Result<PathBuf> {
-        let pathbuf = PathBuf::from(&self.db_path);
-        if !pathbuf.is_dir() {
-            create_dir_all(&pathbuf)?;
-        }
-        Ok(pathbuf)
-    }
 }
 
 fn main() -> Result<()> {

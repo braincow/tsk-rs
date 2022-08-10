@@ -2,6 +2,7 @@
 # example configuration file for tsk-rs suite
 #
 
+[data]
 db_path = "test_data"
 
 # eof
