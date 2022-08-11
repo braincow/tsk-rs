@@ -1,9 +1,8 @@
-use std::{path::PathBuf, fs::{remove_file, File}, io::{Write, Read}};
+use std::{path::PathBuf, fs::remove_file};
 
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
 use config::Config;
-use file_lock::{FileLock, FileOptions};
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
 
@@ -81,21 +80,9 @@ fn main() -> Result<()> {
 }
 
 fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
-    let task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
+    let mut task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
-
-    let should_we_block  = true;
-    let options = FileOptions::new()
-        .write(true)
-        .create(true)
-        .append(true);
-    {
-        let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options)
-            .with_context(|| {"while opening new task yaml file"})?;
-        filelock.file.write_all(task.to_yaml_string().with_context(|| {"while serializing task struct to yaml"})?.as_bytes()).with_context(|| {"while writing to task yaml file"})?;
-        filelock.file.flush().with_context(|| {"while flushing os caches to disk"})?;
-        filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
-    }
+    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving task yaml file"})?;
     println!("Created a task '{}'", task.id);
     Ok(())
 }
@@ -108,13 +95,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         task_pathbuf = task_pathbuf.join("*.yaml");
     }
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
-        let task: Task;
-        {
-            let mut file = File::open(task_filename?).with_context(|| {"while opening task yaml file for reading"})?;
-            let mut task_yaml: String = String::new();
-            file.read_to_string(&mut task_yaml).with_context(|| {"while reading task yaml file"})?;
-            task = Task::from_yaml_string(&task_yaml).with_context(|| {"while serializing yaml into task struct"})?;
-        }
+        let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
         if !task.is_done() || *include_done {
             println!("{:?}", task);
         }
@@ -127,23 +108,9 @@ fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> 
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
     if !delete {
-        let mut task: Task;
-
-        let should_we_block  = true;
-        let options = FileOptions::new()
-            .write(true)
-            .create(false)
-            .append(false);
-        {
-            let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options).with_context(|| {"while opening task yaml file for editing"})?;
-            let mut task_yaml: String = String::new();
-            filelock.file.read_to_string(&mut task_yaml).with_context(|| {"while reading task yaml file"})?;
-            task = Task::from_yaml_string(&task_yaml).with_context(|| {"while serializing yaml into task struct"})?;
-            task.mark_as_completed();
-            filelock.file.write_all(task.to_yaml_string().with_context(|| {"while serializing task struct to yaml"})?.as_bytes()).with_context(|| {"while writing to task yaml file"})?;
-            filelock.file.flush().with_context(|| {"while flushing os caches to disk"})?;
-            filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
-            }
+        let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+        task.mark_as_completed();
+        task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving modified task yaml file"})?;
     } else {
         remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
     }

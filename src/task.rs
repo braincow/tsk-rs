@@ -1,10 +1,11 @@
 use crate::parser::lexicon::{Expression, parse};
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File};
 
+use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
-use anyhow::{bail, Result};
+use anyhow::{bail, Result, Context};
 use uuid::Uuid;
 
 #[derive(Error, Debug, PartialEq)]
@@ -25,9 +26,41 @@ pub struct Task {
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
     pub metadata: BTreeMap<String, String>,
+    #[serde(skip_serializing)]
+    yaml_file_pathbuf: Option<PathBuf>,
 }
 
 impl Task {
+    pub fn load_yaml_file_from(task_pathbuf: &PathBuf) -> Result<Self> {
+        let task: Task;
+        {
+            let mut file = File::open(task_pathbuf).with_context(|| {"while opening task yaml file for reading"})?;
+            let mut task_yaml: String = String::new();
+            file.read_to_string(&mut task_yaml).with_context(|| {"while reading task yaml file"})?;
+            task = Task::from_yaml_string(&task_yaml).with_context(|| {"while serializing yaml into task struct"})?;
+        }
+        Ok(task)
+    }
+
+    pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf) -> Result<()> {
+        let should_we_block  = true;
+        let options = FileOptions::new()
+            .write(true)
+            .create(true)
+            .append(false);
+        {
+            let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options)
+                .with_context(|| {"while opening new task yaml file"})?;
+            filelock.file.write_all(self.to_yaml_string().with_context(|| {"while serializing task struct to yaml"})?.as_bytes()).with_context(|| {"while writing to task yaml file"})?;
+            filelock.file.flush().with_context(|| {"while flushing os caches to disk"})?;
+            filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
+        }
+
+        self.yaml_file_pathbuf = Some(task_pathbuf.to_path_buf());
+
+        Ok(())
+    }
+
     pub fn mark_as_completed(&mut self) {
         self.done = true;
         let timestamp = chrono::offset::Utc::now();
@@ -42,7 +75,7 @@ impl Task {
         let timestamp = chrono::offset::Utc::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata }
+        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata, yaml_file_pathbuf: None }
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
@@ -121,6 +154,7 @@ impl Task {
             tags: ret_tags,
             metadata,
             project: ret_project,
+            yaml_file_pathbuf: None,
         })
     }
 }
