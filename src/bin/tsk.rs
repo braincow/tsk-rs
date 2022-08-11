@@ -103,8 +103,12 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             task_cells.push(vec![task.id.cell(), task.description.cell(), task.project.unwrap_or_else(|| {"".to_string()}).cell()]);
         }
     }
-    let tasks_table = task_cells.table().title(vec!["ID".cell().bold(true), "Description".cell().bold(true), "Project".cell().bold(true)]);
-    print_stdout(tasks_table).with_context(|| {"while trying to print out pretty listing of task(s)"})?;
+    if !task_cells.is_empty() {
+        let tasks_table = task_cells.table().title(vec!["ID".cell().bold(true), "Description".cell().bold(true), "Project".cell().bold(true)]);
+        print_stdout(tasks_table).with_context(|| {"while trying to print out pretty listing of task(s)"})?;
+    } else {
+        println!("No tasks");
+    }
 
     Ok(())
 }
@@ -112,12 +116,14 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
 fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     if !delete {
-        let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
         task.mark_as_completed();
         task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving modified task yaml file"})?;
+        println!("Task '{}' now marked as done.", task.id);
     } else {
         remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
+        println!("Task '{}' now deleted permanently.", task.id);
     }
 
     Ok(())
