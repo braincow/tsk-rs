@@ -67,7 +67,7 @@ fn main() -> Result<()> {
             new_task(descriptor.join(" "), &settings)
         },
         Some(Commands::Config) => {
-            println!("{:?}", settings);
+            println!("{}", settings);
             Ok(())
         },
         Some(Commands::Show { id, include_done }) => {

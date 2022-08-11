@@ -1,4 +1,4 @@
-use std::{path::PathBuf, fs::create_dir_all};
+use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
 use anyhow::{Result, Context};
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
@@ -23,6 +23,12 @@ impl Default for Data {
 #[serde(default)]
 pub struct Settings {
     pub data: Data,
+}
+
+impl Display for Settings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", toml::to_string(&self).unwrap())
+    }
 }
 
 impl Settings {
