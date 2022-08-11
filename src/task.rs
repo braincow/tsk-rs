@@ -28,6 +28,12 @@ pub struct Task {
 }
 
 impl Task {
+    pub fn mark_as_completed(&mut self) {
+        self.done = true;
+        let timestamp = chrono::offset::Utc::now();
+        self.metadata.insert(String::from("tsk-rs-task-completed-time"), timestamp.to_rfc3339());
+    }
+
     pub fn is_done(&self) -> bool {
         self.done
     }

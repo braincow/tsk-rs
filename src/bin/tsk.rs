@@ -139,7 +139,7 @@ fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> 
             let mut task_yaml: String = String::new();
             filelock.file.read_to_string(&mut task_yaml).with_context(|| {"while reading task yaml file"})?;
             task = Task::from_yaml_string(&task_yaml).with_context(|| {"while serializing yaml into task struct"})?;
-            task.done = true;
+            task.mark_as_completed();
             filelock.file.write_all(task.to_yaml_string().with_context(|| {"while serializing task struct to yaml"})?.as_bytes()).with_context(|| {"while writing to task yaml file"})?;
             filelock.file.flush().with_context(|| {"while flushing os caches to disk"})?;
             filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
