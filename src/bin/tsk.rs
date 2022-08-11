@@ -32,8 +32,15 @@ enum Commands {
         #[clap(raw = true, value_parser)]
         descriptor: Vec<String>,
     },
-    /// List all tasks
-    List,
+    /// List and show all tasks
+    List {
+        /// task id or part of one
+        #[clap(value_parser)]
+        id: Option<String>,
+        /// show also completed tasks
+        #[clap(short, long, value_parser)]
+        include_done: bool
+    },
     /// display the current configuration of the tsk-rs suite
     Config,
 }
@@ -55,8 +62,8 @@ fn main() -> Result<()> {
             println!("{:?}", settings);
             Ok(())
         },
-        Some(Commands::List) => {
-            list_tasks(&settings)
+        Some(Commands::List { id, include_done }) => {
+            list_tasks(id, include_done, &settings)
         },
         None => {panic!("unknown cli command");}
     }
@@ -81,8 +88,13 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn list_tasks(settings: &Settings) -> Result<()> {
-    let task_pathbuf = settings.db_pathbuf()?.join("*.yaml");
+fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
+    let mut task_pathbuf: PathBuf = settings.db_pathbuf()?;
+    if id.is_some() {
+        task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
+    } else {
+        task_pathbuf = task_pathbuf.join("*.yaml");
+    }
     for task_filename in glob(task_pathbuf.to_str().unwrap())? {
         let task: Task;
         {
@@ -91,9 +103,11 @@ fn list_tasks(settings: &Settings) -> Result<()> {
             file.read_to_string(&mut task_yaml)?;
             task = Task::from_yaml_string(&task_yaml)?;
         }
-        println!("{:?}", task);
+        if !task.is_done() || *include_done {
+            println!("{:?}", task);
+        }
     }
-    
+
     Ok(())
 }
 

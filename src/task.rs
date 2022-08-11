@@ -21,17 +21,22 @@ pub enum TaskError {
 pub struct Task {
     pub id: Uuid,
     pub description: String,
+    pub done: bool,
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
     pub metadata: BTreeMap<String, String>,
 }
 
 impl Task {
+    pub fn is_done(&self) -> bool {
+        self.done
+    }
+
     pub fn new(description: String) -> Self {
         let timestamp = chrono::offset::Utc::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, project: None, tags: None, metadata }
+        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata }
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
@@ -106,6 +111,7 @@ impl Task {
         Ok(Self {
             id: Uuid::new_v4(),
             description,
+            done: false,
             tags: ret_tags,
             metadata,
             project: ret_project,
@@ -124,7 +130,7 @@ mod tests {
     static MULTIPROJECTINPUT: &str = "this has a @project-name, and a @second-project name";
     static DUPLICATEMETADATAINPUT: &str = "this has %x-fuu:bar definied again with %x-fuu:bar";
     static INVALIDMETADATAKEY: &str = "here is an %invalid:metadata key";
-    static YAMLTESTINPUT: &str = "id: bd6f75aa-8c8d-47fb-b905-d9f7b15c782d\ndescription: some task description here additional text at the end\nproject: project-here\ntags:\n- taghere\n- a-second-tag\nmetadata:\n  x-meta: data\n  x-fuu: bar\n  x-meta: data\n  tsk-rs-task-create-time: 2022-08-06T07:55:26.568460389+00:00\n";
+    static YAMLTESTINPUT: &str = "id: bd6f75aa-8c8d-47fb-b905-d9f7b15c782d\ndescription: some task description here additional text at the end\ndone: false\nproject: project-here\ntags:\n- taghere\n- a-second-tag\nmetadata:\n  x-meta: data\n  x-fuu: bar\n  x-meta: data\n  tsk-rs-task-create-time: 2022-08-06T07:55:26.568460389+00:00\n";
 
     #[test]
     fn test_from_yaml() {
@@ -152,7 +158,7 @@ mod tests {
 
         let yaml_string = task.to_yaml_string().unwrap();
         assert_eq!(yaml_string,
-            format!("id: {}\ndescription: {}\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\n",
+            format!("id: {}\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\n",
                 task.id,
                 task.description,
                 task.project.unwrap(),
