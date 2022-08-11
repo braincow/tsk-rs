@@ -265,7 +265,7 @@ mod tests {
 
         let yaml_string = task.to_yaml_string().unwrap();
         assert_eq!(yaml_string,
-            format!("id: {}\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\n",
+            format!("id: {}\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\ntimetracker: null\n",
                 task.id,
                 task.description,
                 task.project.unwrap(),
