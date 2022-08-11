@@ -62,9 +62,12 @@ impl Task {
     }
 
     pub fn mark_as_completed(&mut self) {
-        self.done = true;
-        let timestamp = chrono::offset::Utc::now();
-        self.metadata.insert(String::from("tsk-rs-task-completed-time"), timestamp.to_rfc3339());
+        if !self.is_done() {
+            // only mark as done and add metadata if the task is not done yet. this keeps original task-completed-time intact
+            self.done = true;
+            let timestamp = chrono::offset::Utc::now();
+            self.metadata.insert(String::from("tsk-rs-task-completed-time"), timestamp.to_rfc3339());    
+        }
     }
 
     pub fn is_done(&self) -> bool {
