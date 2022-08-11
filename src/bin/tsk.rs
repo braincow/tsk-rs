@@ -2,6 +2,7 @@ use std::{path::PathBuf, fs::remove_file};
 
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
+use cli_table::{Cell, Table, Style, print_stdout};
 use config::Config;
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
@@ -31,8 +32,8 @@ enum Commands {
         #[clap(raw = true, value_parser)]
         descriptor: Vec<String>,
     },
-    /// List and show all tasks
-    List {
+    /// Show and/or list tasks
+    Show {
         /// task id or part of one
         #[clap(value_parser)]
         id: Option<String>,
@@ -69,13 +70,13 @@ fn main() -> Result<()> {
             println!("{:?}", settings);
             Ok(())
         },
-        Some(Commands::List { id, include_done }) => {
-            list_tasks(id, include_done, &settings)
+        Some(Commands::Show { id, include_done }) => {
+            show_tasks(id, include_done, &settings)
         },
         Some(Commands::Done { id, delete}) => {
             complete_task(id, delete, &settings)
         }
-        None => {panic!("unknown cli command");}
+        None => {show_tasks(&None, &false, &settings)}
     }
 }
 
@@ -87,7 +88,9 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
+fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
+    let mut task_cells = vec![];
+
     let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
     if id.is_some() {
         task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
@@ -97,9 +100,11 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
         if !task.is_done() || *include_done {
-            println!("{:?}", task);
+            task_cells.push(vec![task.id.cell(), task.description.cell(), task.project.unwrap_or_else(|| {"".to_string()}).cell()]);
         }
     }
+    let tasks_table = task_cells.table().title(vec!["ID".cell().bold(true), "Description".cell().bold(true), "Project".cell().bold(true)]);
+    print_stdout(tasks_table).with_context(|| {"while trying to print out pretty listing of task(s)"})?;
 
     Ok(())
 }

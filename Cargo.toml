@@ -12,6 +12,7 @@ readme = "README.md"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "3.2", features = ["derive"] }
+cli-table = "0.4.7"
 config = "0.13"
 directories = "4.0"
 file-lock = "2.1.6"
