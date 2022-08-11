@@ -82,7 +82,7 @@ fn main() -> Result<()> {
 
 fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     let task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
-    let task_pathbuf = settings.db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
 
     let should_we_block  = true;
     let options = FileOptions::new()
@@ -101,7 +101,7 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
 }
 
 fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
-    let mut task_pathbuf: PathBuf = settings.db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
+    let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
     if id.is_some() {
         task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
     } else {
@@ -124,7 +124,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
 }
 
 fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> {
-    let task_pathbuf = settings.db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
     if !delete {
         let mut task: Task;

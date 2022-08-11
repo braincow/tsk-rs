@@ -33,4 +33,12 @@ impl Settings {
         }
         Ok(pathbuf)
     }
+
+    pub fn task_db_pathbuf(&self) -> Result<PathBuf> {
+        let pathbuf = &self.db_pathbuf()?.join("tasks");
+        if !pathbuf.is_dir() {
+            create_dir_all(&pathbuf)?;
+        }
+        Ok(pathbuf.to_path_buf())
+    }
 }
