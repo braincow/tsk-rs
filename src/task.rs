@@ -2,6 +2,7 @@ use crate::parser::lexicon::{Expression, parse};
 
 use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File};
 
+use chrono::{DateTime, Utc, Duration};
 use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
@@ -18,6 +19,12 @@ pub enum TaskError {
     MetadataPrefixInvalid(String),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeTrack {
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Task {
     pub id: Uuid,
@@ -26,9 +33,70 @@ pub struct Task {
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
     pub metadata: BTreeMap<String, String>,
+    pub timetracker: Option<Vec<TimeTrack>>,
 }
 
 impl Task {
+    pub fn is_running(&self) -> bool {
+        if self.timetracker.is_none() {
+            return false;
+        }
+
+        for timetrack in self.timetracker.as_ref().unwrap() {
+            if timetrack.end_time.is_none() {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn current_timetrack(&self) -> Option<(usize, TimeTrack)> {
+        for (i, timetrack) in self.timetracker.as_ref().unwrap().iter().enumerate() {
+            if timetrack.end_time.is_none() {
+                return Some((i, timetrack.clone()));
+            }
+        }
+        None
+    }
+
+    pub fn start(&mut self) {
+        if !self.is_running() {
+            let timestamp = chrono::offset::Utc::now();
+            let mut timetracks: Vec<TimeTrack>;
+            if self.timetracker.is_some() {
+                timetracks = self.timetracker.as_ref().unwrap().to_vec();
+            } else {
+                timetracks = vec![];
+            }
+            timetracks.push(TimeTrack { start_time: timestamp, end_time: None });
+            self.timetracker = Some(timetracks);
+        }
+    }
+
+    pub fn stop(&mut self) {
+        if self.is_running() {
+            let timestamp = chrono::offset::Utc::now();
+            let (pos, mut timetrack) = self.current_timetrack().unwrap();
+            let mut timetracks: Vec<TimeTrack> = self.timetracker.as_ref().unwrap().to_vec();
+            timetrack.end_time = Some(timestamp);
+            _ = timetracks.remove(pos);
+            timetracks.insert(pos, timetrack);
+            self.timetracker = Some(timetracks);
+        }
+    }
+
+    pub fn runtime(&self) -> Option<Duration> {
+        if !self.is_running() {
+            return None;
+        }
+        let now = chrono::offset::Utc::now();
+        let (_, timetrack) = self.current_timetrack().unwrap();
+        let runtime = now - timetrack.start_time;
+
+        Some(runtime)
+    }
+
     pub fn load_yaml_file_from(task_pathbuf: &PathBuf) -> Result<Self> {
         let task: Task;
         {
@@ -74,7 +142,7 @@ impl Task {
         let timestamp = chrono::offset::Utc::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata }
+        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata, timetracker: None }
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
@@ -153,6 +221,7 @@ impl Task {
             tags: ret_tags,
             metadata,
             project: ret_project,
+            timetracker: None,
         })
     }
 }

@@ -45,6 +45,16 @@ enum Commands {
         #[clap(short, long, value_parser)]
         delete: bool
     },
+    Start {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+    },
+    Stop {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+    },
     /// display the current configuration of the tsk-rs suite
     Config,
 }
@@ -71,9 +81,33 @@ fn main() -> Result<()> {
         },
         Some(Commands::Done { id, delete}) => {
             complete_task(id, delete, &settings)
-        }
+        },
+        Some(Commands::Start { id }) => {
+            start_task(id, &settings)
+        },
+        Some(Commands::Stop { id }) => {
+            stop_task(id, &settings)
+        },
         None => {show_tasks(&None, &false, &settings)}
     }
+}
+
+fn start_task(id: &String, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    task.start();
+    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving task yaml file"})?;
+    println!("Started time tracking for task '{}'", task.id);
+    Ok(())
+}
+
+fn stop_task(id: &String, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    task.stop();
+    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving task yaml file"})?;
+    println!("Stopped time tracking for task '{}'", task.id);
+    Ok(())
 }
 
 fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
@@ -95,12 +129,21 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     }
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
+        let runtime = task.runtime();
+        let runtime_str = if let Some(runtime) = runtime {
+            runtime.to_string()
+        } else {
+            "".to_string()
+        };
         if !task.is_done() || *include_done {
-            task_cells.push(vec![task.id.cell(), task.description.cell(), task.project.unwrap_or_else(|| {"".to_string()}).cell()]);
+            task_cells.push(vec![task.id.cell(), task.description.cell(),
+                task.project.unwrap_or_else(|| {"".to_string()}).cell(),
+                runtime_str.cell(),
+                ]);
         }
     }
     if !task_cells.is_empty() {
-        let tasks_table = task_cells.table().title(vec!["ID".cell().bold(true), "Description".cell().bold(true), "Project".cell().bold(true)]);
+        let tasks_table = task_cells.table().title(vec!["ID".cell().bold(true), "Description".cell().bold(true), "Project".cell().bold(true), "Cur. runtime".cell().bold(true)]);
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty listing of task(s)"})?;
     } else {
         println!("No tasks");
