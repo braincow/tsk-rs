@@ -14,10 +14,6 @@ struct Cli {
     #[clap(short, long, value_parser, value_name = "FILE", default_value = "tsk.toml")]
     config: PathBuf,
 
-    /// Turn debugging information on
-    #[clap(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
-
     #[clap(subcommand)]
     command: Option<Commands>,
 }
