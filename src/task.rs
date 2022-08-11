@@ -26,8 +26,6 @@ pub struct Task {
     pub project: Option<String>,
     pub tags: Option<Vec<String>>,
     pub metadata: BTreeMap<String, String>,
-    #[serde(skip_serializing)]
-    yaml_file_pathbuf: Option<PathBuf>,
 }
 
 impl Task {
@@ -56,8 +54,6 @@ impl Task {
             filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
         }
 
-        self.yaml_file_pathbuf = Some(task_pathbuf.to_path_buf());
-
         Ok(())
     }
 
@@ -78,7 +74,7 @@ impl Task {
         let timestamp = chrono::offset::Utc::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata, yaml_file_pathbuf: None }
+        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata }
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
@@ -157,7 +153,6 @@ impl Task {
             tags: ret_tags,
             metadata,
             project: ret_project,
-            yaml_file_pathbuf: None,
         })
     }
 }
