@@ -1,5 +1,5 @@
 use std::{path::PathBuf, fs::create_dir_all};
-use anyhow::Result;
+use anyhow::{Result, Context};
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
 
@@ -29,7 +29,7 @@ impl Settings {
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = PathBuf::from(&self.data.db_path);
         if !pathbuf.is_dir() {
-            create_dir_all(&pathbuf)?;
+            create_dir_all(&pathbuf).with_context(|| {"while creating database directory"})?;
         }
         Ok(pathbuf)
     }
@@ -37,7 +37,7 @@ impl Settings {
     pub fn task_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("tasks");
         if !pathbuf.is_dir() {
-            create_dir_all(&pathbuf)?;
+            create_dir_all(&pathbuf).with_context(|| {"while creating tasks database directory"})?;
         }
         Ok(pathbuf.to_path_buf())
     }
