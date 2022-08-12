@@ -25,6 +25,7 @@ enum Commands {
         #[clap(value_parser)]
         id: Option<String>,
     },
+    /// Start tracking a task
     Start {
         /// task id
         #[clap(value_parser)]
@@ -33,6 +34,7 @@ enum Commands {
         #[clap(value_parser)]
         annotation: Option<String>,
     },
+    /// Stop from tracking a task
     Stop {
         /// task id
         #[clap(value_parser)]

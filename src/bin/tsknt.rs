@@ -40,6 +40,7 @@ enum Commands {
         #[clap(short, long, value_parser)]
         force: bool,
     },
+    /// show note(s)
     Show {
         /// task id
         #[clap(value_parser)]

@@ -38,6 +38,7 @@ enum Commands {
         #[clap(short, long, value_parser)]
         include_done: bool
     },
+    /// Mark task as done
     Done {
         /// task id
         #[clap(value_parser)]
@@ -49,6 +50,7 @@ enum Commands {
         #[clap(short, long, value_parser)]
         force: bool,
     },
+    /// EDit raw datafile of the task (for advanced users)
     Edit {
         /// task id
         #[clap(value_parser)]
