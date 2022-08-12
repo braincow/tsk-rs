@@ -5,11 +5,26 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Data {
+pub struct NoteSettings {
+
+    pub add_description_on_new: bool,
+    pub add_timestamp_on_edit: bool,
+}
+
+
+impl Default for NoteSettings {
+    fn default() -> Self {
+        Self { add_description_on_new: true, add_timestamp_on_edit: true }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DataSettings {
     pub db_path: String,
 }
 
-impl Default for Data {
+impl Default for DataSettings {
     fn default() -> Self {
         let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
 
@@ -22,7 +37,8 @@ impl Default for Data {
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub data: Data,
+    pub data: DataSettings,
+    pub note: NoteSettings,
 }
 
 impl Display for Settings {
@@ -47,4 +63,13 @@ impl Settings {
         }
         Ok(pathbuf.to_path_buf())
     }
+
+    pub fn note_db_pathbuf(&self) -> Result<PathBuf> {
+        let pathbuf = &self.db_pathbuf()?.join("notes");
+        if !pathbuf.is_dir() {
+            create_dir_all(&pathbuf).with_context(|| {"while creating notes database directory"})?;
+        }
+        Ok(pathbuf.to_path_buf())
+    }
+
 }

@@ -5,4 +5,8 @@
 [data]
 db_path = "test_data" # if uncommented defaults to users data directory in the os e.g $HOME/.local/share/tsk-rs
 
+[note]
+#add_description_on_new = true # if false does not add '# description' header to Markdown on edit
+#add_timestamp_on_edit = true # if false does not add current date and time to Markdown on edit
+
 # eof
