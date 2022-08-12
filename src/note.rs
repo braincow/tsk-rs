@@ -10,7 +10,7 @@ use anyhow::{Result, Context};
 pub struct Note {
     pub task_id: Uuid,
     pub markdown: Option<String>,
-    pub metadata: Option<BTreeMap<String, String>>,
+    pub metadata: BTreeMap<String, String>,
 }
 
 impl Note {
@@ -23,7 +23,7 @@ impl Note {
         Self {
             task_id: *task_id,
             markdown: None,
-            metadata: Some(metadata)
+            metadata
         }
     }
 
@@ -70,6 +70,40 @@ impl Note {
     }
 
 
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{DateTime, Datelike};
+
+    use super::*;
+
+    static YAMLTESTINPUT: &str = "task_id: bd6f75aa-8c8d-47fb-b905-d9f7b15c782d\nmarkdown: fubar\nmetadata:\n  tsk-rs-note-create-time: 2022-08-06T07:55:26.568460389+00:00\n  x-fuu: bar\n";
+
+    #[test]
+    fn test_from_yaml() {
+        let note = Note::from_yaml_string(YAMLTESTINPUT).unwrap();
+
+        assert_eq!(note.task_id, Uuid::parse_str("bd6f75aa-8c8d-47fb-b905-d9f7b15c782d").unwrap());
+        assert_eq!(note.markdown, Some("fubar".to_string()));
+
+        let timestamp = DateTime::parse_from_rfc3339(note.metadata.get("tsk-rs-note-create-time").unwrap()).unwrap();
+        assert_eq!(timestamp.year(), 2022);
+        assert_eq!(timestamp.month(), 8);
+        assert_eq!(timestamp.day(), 6);
+    }
+
+    #[test]
+    fn test_to_yaml() {
+        let mut note = Note::new(&Uuid::parse_str("bd6f75aa-8c8d-47fb-b905-d9f7b15c782d").unwrap());
+        note.markdown = Some("fubar".to_string());
+        note.metadata.insert("x-fuu".to_string(), "bar".to_string());
+        // replace the create timestamp metadata to match test input
+        note.metadata.insert("tsk-rs-note-create-time".to_string(), "2022-08-06T07:55:26.568460389+00:00".to_string());
+
+        let yaml = note.to_yaml_string().unwrap();
+        assert_eq!(yaml, YAMLTESTINPUT);
+    }
 }
 
 // eof
