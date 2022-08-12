@@ -17,6 +17,8 @@ pub enum TaskError {
     IdenticalMetadataKeyNotAllowed(String),
     #[error("metadata key name invalid `{0}`. try with prefix `x-{0}`")]
     MetadataPrefixInvalid(String),
+    #[error("task already completed. cannot modify")]
+    TaskAlreadyCompleted,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +62,10 @@ impl Task {
         None
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self) -> Result<()> {
+        if self.is_done() {
+            bail!(TaskError::TaskAlreadyCompleted);
+        }
         if !self.is_running() {
             let timestamp = chrono::offset::Utc::now();
             let mut timetracks: Vec<TimeTrack>;
@@ -72,9 +77,15 @@ impl Task {
             timetracks.push(TimeTrack { start_time: timestamp, end_time: None });
             self.timetracker = Some(timetracks);
         }
+
+        Ok(())
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Result<()> {
+        if self.is_done() {
+            bail!(TaskError::TaskAlreadyCompleted);
+        }
+
         if self.is_running() {
             let timestamp = chrono::offset::Utc::now();
             let (pos, mut timetrack) = self.current_timetrack().unwrap();
@@ -84,6 +95,8 @@ impl Task {
             timetracks.insert(pos, timetrack);
             self.timetracker = Some(timetracks);
         }
+
+        Ok(())
     }
 
     pub fn runtime(&self) -> Option<Duration> {
@@ -125,13 +138,19 @@ impl Task {
         Ok(())
     }
 
-    pub fn mark_as_completed(&mut self) {
+    pub fn mark_as_completed(&mut self) -> Result<()> {
+        if self.is_running() {
+            // if the task is running stop the current timetrack first to cleanup properly
+            self.stop()?;
+        }
         if !self.is_done() {
             // only mark as done and add metadata if the task is not done yet. this keeps original task-completed-time intact
             self.done = true;
             let timestamp = chrono::offset::Utc::now();
             self.metadata.insert(String::from("tsk-rs-task-completed-time"), timestamp.to_rfc3339());    
         }
+
+        Ok(())
     }
 
     pub fn is_done(&self) -> bool {
