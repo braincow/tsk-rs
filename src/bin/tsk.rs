@@ -4,6 +4,7 @@ use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::Border};
 use config::Config;
+use question::{Answer, Question};
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
 use edit::edit;
@@ -44,7 +45,10 @@ enum Commands {
         id: String,
         /// delete task file
         #[clap(short, long, value_parser)]
-        delete: bool
+        delete: bool,
+        /// delete file silently
+        #[clap(short, long, value_parser)]
+        force: bool,
     },
     Edit {
         /// task id
@@ -75,8 +79,8 @@ fn main() -> Result<()> {
         Some(Commands::Show { id, include_done }) => {
             show_tasks(id, include_done, &settings)
         },
-        Some(Commands::Done { id, delete}) => {
-            complete_task(id, delete, &settings)
+        Some(Commands::Done { id, delete, force}) => {
+            complete_task(id, delete, force, &settings)
         },
         Some(Commands::Edit { id }) => {
             edit_task(id, &settings)
@@ -125,7 +129,7 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     Ok(())
 }
 
-fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> {
+fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
@@ -134,8 +138,19 @@ fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> 
         task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving modified task yaml file"})?;
         println!("Task '{}' now marked as done.", task.id);
     } else {
-        remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
-        println!("Task '{}' now deleted permanently.", task.id);
+        let answer = if !force {
+            Question::new("Really delete this task?")
+            .default(Answer::NO)
+            .show_defaults()
+            .confirm()
+        } else {
+            Answer::YES
+        };
+
+        if answer == Answer::YES {
+            remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
+            println!("Task '{}' now deleted permanently.", task.id);
+        }
     }
 
     Ok(())

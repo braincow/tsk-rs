@@ -139,13 +139,20 @@ fn show_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
 fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
     let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
-    let answer = Question::new("Really delete this note?")
+    let note = Note::load_yaml_file_from(&note_pathbuf)?;
+    
+    let answer = if !force {
+        Question::new("Really delete this note?")
         .default(Answer::NO)
         .show_defaults()
-        .confirm();
+        .confirm()
+    } else {
+        Answer::YES
+    };
 
-    if answer == Answer::YES || *force {
+    if answer == Answer::YES {
         remove_file(note_pathbuf).with_context(|| {"while removing note file"})?;
+        println!("Note for '{}' now deleted permanently.", note.task_id);    
     }
 
     Ok(())
