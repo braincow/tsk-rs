@@ -22,6 +22,8 @@ pub enum TaskError {
     TaskAlreadyCompleted,
     #[error("task already running")]
     TaskAlreadyRunning,
+    #[error("task not running")]
+    TaskNotRunning,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +101,8 @@ impl Task {
             _ = timetracks.remove(pos);
             timetracks.insert(pos, timetrack);
             self.timetracker = Some(timetracks);
+        } else {
+            bail!(TaskError::TaskNotRunning);
         }
 
         Ok(())
