@@ -6,6 +6,7 @@ use cli_table::{Cell, Table, Style, print_stdout};
 use config::Config;
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
+use edit::edit;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -55,6 +56,11 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
     },
+    Edit {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+    },
     /// display the current configuration of the tsk-rs suite
     Config,
 }
@@ -87,6 +93,9 @@ fn main() -> Result<()> {
         },
         Some(Commands::Stop { id }) => {
             stop_task(id, &settings)
+        },
+        Some(Commands::Edit { id }) => {
+            edit_task(id, &settings)
         },
         None => {show_tasks(&None, &false, &settings)}
     }
@@ -164,6 +173,16 @@ fn complete_task(id: &String, delete: &bool, settings: &Settings) -> Result<()> 
         remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
         println!("Task '{}' now deleted permanently.", task.id);
     }
+
+    Ok(())
+}
+
+fn edit_task(id: &String, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    let new_yaml = edit(task.to_yaml_string()?).with_context(|| {"while starting an external editor"})?;
+    task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
+    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving modified task yaml file"})?;
 
     Ok(())
 }

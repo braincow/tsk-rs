@@ -12,14 +12,15 @@ readme = "README.md"
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "3.2", features = ["derive"] }
-cli-table = "0.4.7"
+cli-table = "0.4"
 config = "0.13"
 directories = "4.0"
-file-lock = "2.1.6"
-glob = "0.3.0"
+edit = "0.1"
+file-lock = "2.1"
+glob = "0.3"
 nom = "7.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 thiserror = "1.0"
-toml = "0.5.9"
+toml = "0.5"
 uuid = { version = "1.1", features = ["v4", "serde"] }
