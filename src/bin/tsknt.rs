@@ -21,7 +21,7 @@ struct Cli {
 enum Commands {
     /// adds a new task from task description string
     #[clap(allow_missing_positional = true)]
-    Edit {
+    Jot {
         /// task id
         #[clap(value_parser)]
         id: String,
@@ -41,14 +41,14 @@ fn main() -> Result<()> {
     let settings: Settings = config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
 
     match &cli.command {
-        Some(Commands::Edit { id, raw }) => {
-            edit_note(id, raw, &settings)
+        Some(Commands::Jot { id, raw }) => {
+            jot_note(id, raw, &settings)
         },
         None => {todo!("we should list available notes here"); }
     }
 }
 
-fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
+fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for reading"})?;
 
