@@ -95,11 +95,11 @@ fn show_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
         if let Some(task) = task {
             let mut show_note = false;
             // there is a task file
-            if task.is_done() && *completed {
+            if task.done && *completed {
                 // .. but the task is completed. however completed is true so we show it
                 show_note = true;
             }
-            if !task.is_done() {
+            if !task.done {
                 // .. task is not done so show it
                 show_note = true;
             }
@@ -160,7 +160,7 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for reading"})?;
 
-    if task.is_done() {
+    if task.done {
         bail!(TaskError::TaskAlreadyCompleted);
     }
 

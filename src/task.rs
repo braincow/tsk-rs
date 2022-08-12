@@ -71,7 +71,7 @@ impl Task {
     }
 
     pub fn start(&mut self, annotation: &Option<String>) -> Result<()> {
-        if self.is_done() {
+        if self.done {
             bail!(TaskError::TaskAlreadyCompleted);
         }
         if !self.is_running() {
@@ -92,7 +92,7 @@ impl Task {
     }
 
     pub fn stop(&mut self) -> Result<()> {
-        if self.is_done() {
+        if self.done {
             bail!(TaskError::TaskAlreadyCompleted);
         }
 
@@ -162,7 +162,7 @@ impl Task {
             // if the task is running stop the current timetrack first to cleanup properly
             self.stop().with_context(|| {"while stopping a task"})?;
         }
-        if !self.is_done() {
+        if !self.done {
             // only mark as done and add metadata if the task is not done yet. this keeps original task-completed-time intact
             self.done = true;
             let timestamp = chrono::offset::Utc::now();
@@ -170,10 +170,6 @@ impl Task {
         }
 
         Ok(())
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.done
     }
 
     pub fn new(description: String) -> Self {

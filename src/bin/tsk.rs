@@ -106,7 +106,7 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     }
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
-        if !task.is_done() || *include_done {
+        if !task.done || *include_done {
             task_cells.push(vec![task.id.cell(), task.description.cell(),
                 task.project.unwrap_or_else(|| {"".to_string()}).cell(),
                 ]);
