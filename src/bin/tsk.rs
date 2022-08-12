@@ -92,7 +92,7 @@ fn main() -> Result<()> {
 fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     let mut task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
-    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving task yaml file"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Created a task '{}'", task.id);
     Ok(())
 }
@@ -135,7 +135,7 @@ fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) 
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     if !delete {
         task.mark_as_completed().with_context(|| {"while modifying task"})?;
-        task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving modified task yaml file"})?;
+        task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
         println!("Task '{}' now marked as done.", task.id);
     } else {
         let answer = if !force {
@@ -161,7 +161,7 @@ fn edit_task(id: &String, settings: &Settings) -> Result<()> {
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     let new_yaml = edit(task.to_yaml_string()?).with_context(|| {"while starting an external editor"})?;
     task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
-    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving modified task yaml file"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
 
     Ok(())
 }

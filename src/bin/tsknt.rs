@@ -171,7 +171,7 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let mut note: Note;
     if !note_pathbuf.is_file() {
         note = Note::new(&task.id);
-        note.save_yaml_file_to(&note_pathbuf).with_context(|| {"while saving new task note file"})?;
+        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving new task note file"})?;
     } else {
         note = Note::load_yaml_file_from(&note_pathbuf)?;
     }
@@ -193,7 +193,7 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
         let new_yaml = edit(note.to_yaml_string()?).with_context(|| {"while starting an external editor"})?;
         note = Note::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified note yaml"})?;
     }
-    note.save_yaml_file_to(&note_pathbuf).with_context(|| {"while saving modified note yaml file"})?;
+    note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified note yaml file"})?;
 
     Ok(())
 }

@@ -6,7 +6,6 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NoteSettings {
-
     pub add_description_on_new: bool,
     pub add_timestamp_on_edit: bool,
 }
@@ -22,6 +21,7 @@ impl Default for NoteSettings {
 #[serde(default)]
 pub struct DataSettings {
     pub db_path: String,
+    pub rotate: usize,
 }
 
 impl Default for DataSettings {
@@ -29,7 +29,8 @@ impl Default for DataSettings {
         let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
 
         Self {
-            db_path: String::from(proj_dirs.data_dir().to_str().unwrap())
+            db_path: String::from(proj_dirs.data_dir().to_str().unwrap()),
+            rotate: 3,
         }
     }
 }

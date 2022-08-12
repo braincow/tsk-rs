@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File};
 use chrono::{DateTime, Utc, Duration};
 use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
+use simple_file_rotation::FileRotation;
 use thiserror::Error;
 use anyhow::{bail, Result, Context};
 use uuid::Uuid;
@@ -19,6 +20,8 @@ pub enum TaskError {
     MetadataPrefixInvalid(String),
     #[error("task already completed. cannot modify")]
     TaskAlreadyCompleted,
+    #[error("task already running")]
+    TaskAlreadyRunning,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +79,8 @@ impl Task {
             }
             timetracks.push(TimeTrack { start_time: timestamp, end_time: None });
             self.timetracker = Some(timetracks);
+        } else {
+            bail!(TaskError::TaskAlreadyRunning);
         }
 
         Ok(())
@@ -121,7 +126,12 @@ impl Task {
         Ok(task)
     }
 
-    pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf) -> Result<()> {
+    pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf, rotate: &usize ) -> Result<()> {
+        // rotate existing file with same name if present
+        if task_pathbuf.is_file() && rotate > &0 {
+            FileRotation::new(&task_pathbuf).max_old_files(*rotate).rotate()?;
+        }
+        // save file by locking
         let should_we_block  = true;
         let options = FileOptions::new()
             .write(true)

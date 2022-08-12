@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, fs::File, path::PathBuf, io::{Read, Write}};
 
 use file_lock::{FileOptions, FileLock};
 use serde::{Serialize, Deserialize};
+use simple_file_rotation::FileRotation;
 use uuid::Uuid;
 use anyhow::{Result, Context};
 
@@ -45,7 +46,12 @@ impl Note {
         Ok(note)
     }
 
-    pub fn save_yaml_file_to(&mut self, note_pathbuf: &PathBuf) -> Result<()> {
+    pub fn save_yaml_file_to(&mut self, note_pathbuf: &PathBuf, rotate: &usize) -> Result<()> {
+        // rotate existing file with same name if present
+        if note_pathbuf.is_file() && rotate > &0 {
+            FileRotation::new(&note_pathbuf).max_old_files(*rotate).rotate()?;
+        }
+
         let should_we_block  = true;
         let options = FileOptions::new()
             .write(true)

@@ -23,6 +23,7 @@ nom = "7.1"
 question = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+simple-file-rotation = "0.3"
 thiserror = "1.0"
 toml = "0.5"
 uuid = { version = "1.1", features = ["v4", "serde"] }

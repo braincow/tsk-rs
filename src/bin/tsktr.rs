@@ -65,7 +65,7 @@ fn start_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.start().with_context(|| {"while starting time tracking"})?;
-    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving task yaml file"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Started time tracking for task '{}'", task.id);
     Ok(())
 }
@@ -74,7 +74,7 @@ fn stop_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.stop().with_context(|| {"while stopping time tracking"})?;
-    task.save_yaml_file_to(&task_pathbuf).with_context(|| {"while saving task yaml file"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Stopped time tracking for task '{}'", task.id);
     Ok(())
 }

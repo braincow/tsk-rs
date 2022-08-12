@@ -838,6 +838,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae1a47186c03a32177042e55dbc5fd5aee900b8e0069a8d70fba96a9375cd012"
 
 [[package]]
+name = "simple-file-rotation"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f50d49db824b9a4db005602d06185890cb0f521efab904a009e715a4db253ad8"
+
+[[package]]
 name = "standback"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1037,6 +1043,7 @@ dependencies = [
  "question",
  "serde",
  "serde_yaml",
+ "simple-file-rotation",
  "thiserror",
  "toml",
  "uuid 1.1.2",
