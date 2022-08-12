@@ -20,6 +20,7 @@ file-lock = "2.1"
 glob = "0.3"
 hhmmss = "0.1"
 nom = "7.1"
+question = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 thiserror = "1.0"
