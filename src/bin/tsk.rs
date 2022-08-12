@@ -2,11 +2,12 @@ use std::{path::PathBuf, fs::remove_file};
 
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
-use cli_table::{Cell, Table, Style, print_stdout};
+use cli_table::{Cell, Table, Style, print_stdout, format::Border};
 use config::Config;
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
 use edit::edit;
+use hhmmss::Hhmmss;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -140,7 +141,7 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
         let runtime = task.runtime();
         let runtime_str = if let Some(runtime) = runtime {
-            runtime.to_string()
+            Hhmmss::hhmmss(&runtime)
         } else {
             "".to_string()
         };
@@ -152,8 +153,14 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         }
     }
     if !task_cells.is_empty() {
-        let tasks_table = task_cells.table().title(vec!["ID".cell().bold(true), "Description".cell().bold(true), "Project".cell().bold(true), "Cur. runtime".cell().bold(true)]);
-        print_stdout(tasks_table).with_context(|| {"while trying to print out pretty listing of task(s)"})?;
+        let tasks_table = task_cells.table()
+            .title(
+                vec!["ID".cell().bold(true),
+                "Description".cell().bold(true),
+                "Project".cell().bold(true),
+                "Cur. runtime".cell().bold(true)]) // headers of the table
+            .border(Border::builder().build()); // empty border around the table
+        print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
         println!("No tasks");
     }
