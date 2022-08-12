@@ -125,7 +125,7 @@ pub enum LexiconError {
     ParserError(String),
 }
 
-pub fn parse(input: String) -> Result<Vec<Expression>> {
+pub fn parse_task(input: String) -> Result<Vec<Expression>> {
     let parsed = alt((
         all_consuming(parse_inline),
     ))(&input)

@@ -1,4 +1,4 @@
-use crate::parser::lexicon::{Expression, parse};
+use crate::parser::task_lexicon::{Expression, parse_task};
 
 use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File};
 
@@ -196,7 +196,7 @@ impl Task {
         if input.is_empty() {
             bail!(TaskError::TaskDescriptorEmpty);
         }
-        let expressions = parse(input.to_string()).with_context(|| {"while parsing task descriptor"})?;
+        let expressions = parse_task(input.to_string()).with_context(|| {"while parsing task descriptor"})?;
 
         let mut description: String = String::new();
         let mut tags: Vec<String> = vec![];
