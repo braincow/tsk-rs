@@ -30,6 +30,9 @@ enum Commands {
         /// task id
         #[clap(value_parser)]
         id: String,
+        /// optional annotation for the job at hand
+        #[clap(value_parser)]
+        annotation: Option<String>,
     },
     Stop {
         /// task id
@@ -51,8 +54,8 @@ fn main() -> Result<()> {
         Some(Commands::Show { id }) => {
             show_task(id, &settings)
         },
-        Some(Commands::Start { id }) => {
-            start_task(id, &settings)
+        Some(Commands::Start { id, annotation }) => {
+            start_task(id, annotation, &settings)
         },
         Some(Commands::Stop { id }) => {
             stop_task(id, &settings)
@@ -61,10 +64,10 @@ fn main() -> Result<()> {
     }
 }
 
-fn start_task(id: &String, settings: &Settings) -> Result<()> {
+fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
-    task.start().with_context(|| {"while starting time tracking"})?;
+    task.start(annotation).with_context(|| {"while starting time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Started time tracking for task '{}'", task.id);
     Ok(())

@@ -30,6 +30,7 @@ pub enum TaskError {
 pub struct TimeTrack {
     pub start_time: DateTime<Utc>,
     pub end_time: Option<DateTime<Utc>>,
+    pub annotation: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -67,7 +68,7 @@ impl Task {
         None
     }
 
-    pub fn start(&mut self) -> Result<()> {
+    pub fn start(&mut self, annotation: &Option<String>) -> Result<()> {
         if self.is_done() {
             bail!(TaskError::TaskAlreadyCompleted);
         }
@@ -79,7 +80,7 @@ impl Task {
             } else {
                 timetracks = vec![];
             }
-            timetracks.push(TimeTrack { start_time: timestamp, end_time: None });
+            timetracks.push(TimeTrack { start_time: timestamp, end_time: None, annotation: annotation.clone() });
             self.timetracker = Some(timetracks);
         } else {
             bail!(TaskError::TaskAlreadyRunning);
