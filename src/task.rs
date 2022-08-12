@@ -24,6 +24,8 @@ pub enum TaskError {
     TaskAlreadyRunning,
     #[error("task not running")]
     TaskNotRunning,
+    #[error("task descriptor cant be an empty string")]
+    TaskDescriptorEmpty,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -190,6 +192,9 @@ impl Task {
     }
 
     pub fn from_task_descriptor(input: &String) -> Result<Self> {
+        if input.is_empty() {
+            bail!(TaskError::TaskDescriptorEmpty);
+        }
         let expressions = parse(input.to_string())?;
 
         let mut description: String = String::new();
