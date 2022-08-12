@@ -11,7 +11,6 @@ pub struct NoteSettings {
     pub add_timestamp_on_edit: bool,
 }
 
-
 impl Default for NoteSettings {
     fn default() -> Self {
         Self { add_description_on_new: true, add_timestamp_on_edit: true }
@@ -65,7 +64,7 @@ impl Settings {
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = PathBuf::from(&self.data.db_path);
         if !pathbuf.is_dir() {
-            create_dir_all(&pathbuf).with_context(|| {"while creating database directory"})?;
+            create_dir_all(&pathbuf).with_context(|| {"while creating data directory"})?;
         }
         Ok(pathbuf)
     }
@@ -73,7 +72,7 @@ impl Settings {
     pub fn task_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("tasks");
         if !pathbuf.is_dir() {
-            create_dir_all(&pathbuf).with_context(|| {"while creating tasks database directory"})?;
+            create_dir_all(&pathbuf).with_context(|| {"while creating tasks data directory"})?;
         }
         Ok(pathbuf.to_path_buf())
     }
@@ -81,9 +80,11 @@ impl Settings {
     pub fn note_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("notes");
         if !pathbuf.is_dir() {
-            create_dir_all(&pathbuf).with_context(|| {"while creating notes database directory"})?;
+            create_dir_all(&pathbuf).with_context(|| {"while creating notes data directory"})?;
         }
         Ok(pathbuf.to_path_buf())
     }
 
 }
+
+// eof

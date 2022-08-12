@@ -111,7 +111,7 @@ impl Task {
         Ok(())
     }
 
-    pub fn runtime(&self) -> Option<Duration> {
+    pub fn current_runtime(&self) -> Option<Duration> {
         if !self.is_running() {
             return None;
         }
@@ -123,20 +123,20 @@ impl Task {
     }
 
     pub fn load_yaml_file_from(task_pathbuf: &PathBuf) -> Result<Self> {
-        let task: Task;
-        {
-            let mut file = File::open(task_pathbuf).with_context(|| {"while opening task yaml file for reading"})?;
-            let mut task_yaml: String = String::new();
-            file.read_to_string(&mut task_yaml).with_context(|| {"while reading task yaml file"})?;
-            task = Task::from_yaml_string(&task_yaml).with_context(|| {"while serializing yaml into task struct"})?;
-        }
-        Ok(task)
+        let mut file = File::open(task_pathbuf)
+            .with_context(|| {"while opening task yaml file for reading"})?;
+        let mut task_yaml: String = String::new();
+        file.read_to_string(&mut task_yaml)
+            .with_context(|| {"while reading task yaml file"})?;
+        Task::from_yaml_string(&task_yaml)
+            .with_context(|| {"while serializing yaml into task struct"})
     }
 
     pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf, rotate: &usize ) -> Result<()> {
         // rotate existing file with same name if present
         if task_pathbuf.is_file() && rotate > &0 {
-            FileRotation::new(&task_pathbuf).max_old_files(*rotate).rotate()?;
+            FileRotation::new(&task_pathbuf).max_old_files(*rotate).rotate()
+                .with_context(|| {"while rotating task data file backups"})?;
         }
         // save file by locking
         let should_we_block  = true;
@@ -147,7 +147,9 @@ impl Task {
         {
             let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options)
                 .with_context(|| {"while opening new task yaml file"})?;
-            filelock.file.write_all(self.to_yaml_string().with_context(|| {"while serializing task struct to yaml"})?.as_bytes()).with_context(|| {"while writing to task yaml file"})?;
+            filelock.file.write_all(self.to_yaml_string()
+                .with_context(|| {"while serializing task struct to yaml"})?.as_bytes())
+                    .with_context(|| {"while writing to task yaml file"})?;
             filelock.file.flush().with_context(|| {"while flushing os caches to disk"})?;
             filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
         }
@@ -158,7 +160,7 @@ impl Task {
     pub fn mark_as_completed(&mut self) -> Result<()> {
         if self.is_running() {
             // if the task is running stop the current timetrack first to cleanup properly
-            self.stop()?;
+            self.stop().with_context(|| {"while stopping a task"})?;
         }
         if !self.is_done() {
             // only mark as done and add metadata if the task is not done yet. this keeps original task-completed-time intact
@@ -182,12 +184,11 @@ impl Task {
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
-        let yaml = serde_yaml::to_string(self)?;
-        Ok(yaml)
+        serde_yaml::to_string(self).with_context(|| {"unable to serialize task struct as yaml"})
     }
 
     pub fn from_yaml_string(input: &str) -> Result<Self> {
-        let task: Task = serde_yaml::from_str(input)?;
+        let task: Task = serde_yaml::from_str(input).with_context(|| {"unable to deserialize yaml into task struct"})?;
         Ok(task)
     }
 
@@ -195,7 +196,7 @@ impl Task {
         if input.is_empty() {
             bail!(TaskError::TaskDescriptorEmpty);
         }
-        let expressions = parse(input.to_string())?;
+        let expressions = parse(input.to_string()).with_context(|| {"while parsing task descriptor"})?;
 
         let mut description: String = String::new();
         let mut tags: Vec<String> = vec![];

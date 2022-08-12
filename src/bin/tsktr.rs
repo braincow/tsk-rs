@@ -93,7 +93,7 @@ fn show_task(id: &Option<String>, settings: &Settings) -> Result<()> {
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
 
         if task.is_running() {
-            let runtime = task.runtime().unwrap();
+            let runtime = task.current_runtime().unwrap();
             let runtime_str = Hhmmss::hhmmss(&runtime);
             task_cells.push(vec![task.id.cell(), task.description.cell(),
                 task.project.unwrap_or_else(|| {"".to_string()}).cell(),

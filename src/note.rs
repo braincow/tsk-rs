@@ -49,7 +49,8 @@ impl Note {
     pub fn save_yaml_file_to(&mut self, note_pathbuf: &PathBuf, rotate: &usize) -> Result<()> {
         // rotate existing file with same name if present
         if note_pathbuf.is_file() && rotate > &0 {
-            FileRotation::new(&note_pathbuf).max_old_files(*rotate).rotate()?;
+            FileRotation::new(&note_pathbuf).max_old_files(*rotate).rotate()
+                .with_context(|| {"while rotating note data file backups"})?;
         }
 
         let should_we_block  = true;
