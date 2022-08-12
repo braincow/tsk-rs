@@ -1,5 +1,6 @@
 use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
 use anyhow::{Result, Context};
+use config::Config;
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
 
@@ -49,6 +50,18 @@ impl Display for Settings {
 }
 
 impl Settings {
+    pub fn new(config_file: &str) -> Result<Self> {
+        let mut config = Config::builder();
+        if PathBuf::from(config_file).is_file() {
+            config = config.add_source(config::File::with_name(config_file));
+        }
+        config = config.add_source(config::Environment::with_prefix("TSK"));
+        let ready_config = config.build().with_context(|| {"while reading configuration"})?;
+        let settings: Settings = ready_config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+
+        Ok(settings)
+    }
+
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = PathBuf::from(&self.data.db_path);
         if !pathbuf.is_dir() {

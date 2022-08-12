@@ -3,7 +3,6 @@ use std::{path::PathBuf, fs::remove_file};
 use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::Border, print_stdout};
-use config::Config;
 use question::{Question, Answer};
 use tsk_rs::{settings::Settings, task::{Task, TaskError}, note::Note};
 use edit::edit;
@@ -57,11 +56,8 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let config = Config::builder()
-        .add_source(config::File::with_name(cli.config.to_str().unwrap()))
-        .add_source(config::Environment::with_prefix("TSK"))
-        .build().with_context(|| {"while reading configuration"})?;
-    let settings: Settings = config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+    let settings = Settings::new(cli.config.to_str().unwrap())
+        .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
         Some(Commands::Jot { id, raw }) => {

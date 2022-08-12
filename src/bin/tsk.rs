@@ -3,7 +3,6 @@ use std::{path::PathBuf, fs::remove_file};
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::Border};
-use config::Config;
 use question::{Answer, Question};
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
@@ -62,11 +61,8 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let config = Config::builder()
-        .add_source(config::File::with_name(cli.config.to_str().unwrap()))
-        .add_source(config::Environment::with_prefix("TSK"))
-        .build().with_context(|| {"while reading configuration"})?;
-    let settings: Settings = config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+    let settings = Settings::new(cli.config.to_str().unwrap())
+        .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
         Some(Commands::New { descriptor }) => { 
