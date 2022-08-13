@@ -156,30 +156,38 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
 }
 
 fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
-    let mut task_cells = vec![];
-
     let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
     if id.is_some() {
         task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
     } else {
         task_pathbuf = task_pathbuf.join("*.yaml");
     }
+
+    let mut found_tasks: Vec<Task> = vec![];
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
         if !task.done || *include_done {
-            let runtime_str = if task.is_running() {
-                let runtime = task.current_runtime().unwrap();
-                Hhmmss::hhmmss(&runtime)
-            } else {
-                "[stopped]".to_string()
-            };
-            task_cells.push(vec![task.id.cell(), task.description.clone().cell(),
-                task.project.clone().unwrap_or_else(|| {"".to_string()}).cell(),
-                task.score()?.cell(),
-                runtime_str.cell(),
-                ]);
+            found_tasks.push(task);
         }
     }
+    found_tasks.sort_by_key(|k| k.score().unwrap());
+    found_tasks.reverse();
+
+    let mut task_cells = vec![];
+    for found_task in found_tasks {
+        let runtime_str = if found_task.is_running() {
+            let runtime = found_task.current_runtime().unwrap();
+            Hhmmss::hhmmss(&runtime)
+        } else {
+            "[stopped]".to_string()
+        };
+        task_cells.push(vec![found_task.id.cell(), found_task.description.clone().cell(),
+            found_task.project.clone().unwrap_or_else(|| {"".to_string()}).cell(),
+            found_task.score()?.cell(),
+            runtime_str.cell(),
+            ]);
+    }
+
     if !task_cells.is_empty() {
         let tasks_table = task_cells.table()
             .title(

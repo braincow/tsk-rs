@@ -275,37 +275,37 @@ impl Task {
         })
     }
 
-    pub fn score(&self) -> Result<f32> {
+    pub fn score(&self) -> Result<usize> {
         // the more "fleshed out" the task is the more higher score it should get
-        let mut score: f32 = 0.0;
+        let mut score: usize = 0;
     
         if self.project.is_some() {
             // project is valued at 3 points
-            score += 3.0;
+            score += 3;
         }
     
         if self.tags.is_some() {
             // each hashtag is valued at two (2) points
-            score += (self.tags.as_ref().unwrap().len() * 2) as f32;
+            score += self.tags.as_ref().unwrap().len() * 2;
         }
     
         if self.is_running() {
             // if task is running it gains 5 points
-            score += 5.0;
+            score += 5;
         }
     
         if self.timetracker.is_some() {
-            // each timetracker entry grants half a point
-            score += self.timetracker.as_ref().unwrap().len() as f32 * 0.5;
+            // each timetracker entry grants 1 point
+            score += self.timetracker.as_ref().unwrap().len();
         }
     
         if let Some(priority) = self.metadata.get("tsk-rs-task-priority") {
             // priorities have different weights in the score
             match TaskPriority::from_str(priority).with_context(|| {"while converting task priority to enum"})? {
-                TaskPriority::Low => score += 1.0,
-                TaskPriority::Medium => score += 3.0,
-                TaskPriority::High => score += 8.0,
-                TaskPriority::Critical => score += 13.0,
+                TaskPriority::Low => score += 1,
+                TaskPriority::Medium => score += 3,
+                TaskPriority::High => score += 8,
+                TaskPriority::Critical => score += 13,
             }
         }
     
@@ -316,13 +316,13 @@ impl Task {
             let diff = duedate - timestamp;
     
             if diff.num_days() <= 1 {
-                score += 10.0;
+                score += 10;
             } else if diff.num_days() <= 2 && diff.num_days() >= 1 {
-                score += 7.0;
+                score += 7;
             } else if diff.num_days() <= 5 && diff.num_days() >= 2 {
-                score += 5.0;
+                score += 5;
             } else {
-                score += 1.5;
+                score += 2;
             }
         }
     
