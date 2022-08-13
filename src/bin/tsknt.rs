@@ -31,6 +31,15 @@ enum Commands {
         #[clap(short, long, value_parser)]
         raw: bool,
     },
+    /// Read note or entire definition
+    Read {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+        /// mode selection
+        #[clap(short, long, value_parser)]
+        raw: bool,
+    },
     /// delete a note file
     Delete {
         /// task id
@@ -65,6 +74,9 @@ fn main() -> Result<()> {
     match &cli.command {
         Some(Commands::Jot { id, raw }) => {
             jot_note(id, raw, &settings)
+        },
+        Some(Commands::Read { id, raw }) => {
+            read_note(id, raw, &settings)
         },
         Some(Commands::List {id, orphaned, completed }) => {
             list_note(id, orphaned, completed, &settings)
@@ -196,6 +208,22 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
         note = Note::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified note yaml"})?;
     }
     note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified note yaml file"})?;
+
+    Ok(())
+}
+
+fn read_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
+    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
+
+    if !raw {
+        // by default, only show the markdown inside the note yaml
+        if let Some(md) = note.markdown {
+            println!("{}", md);
+        }
+    } else {
+        println!("{}", note);
+    }
 
     Ok(())
 }

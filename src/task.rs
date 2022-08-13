@@ -1,6 +1,6 @@
 use crate::parser::task_lexicon::{Expression, parse_task};
 
-use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File};
+use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File, fmt::Display};
 
 use chrono::{DateTime, Utc, Duration};
 use file_lock::{FileLock, FileOptions};
@@ -44,6 +44,12 @@ pub struct Task {
     pub tags: Option<Vec<String>>,
     pub metadata: BTreeMap<String, String>,
     pub timetracker: Option<Vec<TimeTrack>>,
+}
+
+impl Display for Task {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_yaml_string().unwrap())
+    }
 }
 
 impl Task {

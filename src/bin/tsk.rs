@@ -23,12 +23,18 @@ struct Cli {
 // https://github.com/clap-rs/clap/issues/1236
 #[derive(Subcommand)]
 enum Commands {
-    /// adds a new task from task description string
+    /// Adds a new task from task description string
     #[clap(allow_missing_positional = true)]
     New {
-        /// task description string
+        /// ask description string
         #[clap(raw = true, value_parser)]
         descriptor: Vec<String>,
+    },
+    /// Show task definition and data
+    Show {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
     },
     /// Show and/or list tasks
     List {
@@ -85,6 +91,9 @@ fn main() -> Result<()> {
     match &cli.command {
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
+        },
+        Some(Commands::Show { id }) => {
+            show_task(id, &settings)
         },
         Some(Commands::Config) => {
             println!("{}", settings);
@@ -211,6 +220,14 @@ fn stop_task(id: &String, settings: &Settings) -> Result<()> {
     task.stop().with_context(|| {"while stopping time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Stopped time tracking for task '{}'", task.id);
+    Ok(())
+}
+
+fn show_task(id: &String, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file"})?;
+    println!("{}", task);
+
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs::File, path::PathBuf, io::{Read, Write}};
+use std::{collections::BTreeMap, fs::File, path::PathBuf, io::{Read, Write}, fmt::Display};
 
 use file_lock::{FileOptions, FileLock};
 use serde::{Serialize, Deserialize};
@@ -11,6 +11,12 @@ pub struct Note {
     pub task_id: Uuid,
     pub markdown: Option<String>,
     pub metadata: BTreeMap<String, String>,
+}
+
+impl Display for Note {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_yaml_string().unwrap())
+    }
 }
 
 impl Note {
