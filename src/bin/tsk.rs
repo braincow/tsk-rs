@@ -229,9 +229,8 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     PrettyPrinter::new()
         .language("yaml")
         .input(Input::from_bytes(task_yaml.as_bytes()))
-        .header(true)
-        .grid(true)
-
+        .colored_output(settings.output.colors)
+        .grid(settings.output.grid)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 
@@ -243,9 +242,8 @@ fn show_config(settings: &Settings) -> Result<()> {
     PrettyPrinter::new()
         .language("toml")
         .input(Input::from_bytes(settings_toml.as_bytes()))
-        .header(true)
-        .grid(true)
-
+        .colored_output(settings.output.colors)
+        .grid(settings.output.grid)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 

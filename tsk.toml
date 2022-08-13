@@ -10,4 +10,8 @@ db_path = "test_data" # if uncommented defaults to users data directory in the o
 #add_description_on_new = true # if false does not add '# description' header to Markdown on edit
 #add_timestamp_on_edit = true # if false does not add current date and time to Markdown on edit
 
+[output]
+#colors = true # colorize task and note outputs
+#grid = true # draw a box around output
+
 # eof

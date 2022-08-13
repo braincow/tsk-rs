@@ -6,6 +6,19 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
+pub struct OutputSettings {
+    pub colors: bool,
+    pub grid: bool,
+}
+
+impl Default for OutputSettings {
+    fn default() -> Self {
+        Self { colors: true, grid: true }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NoteSettings {
     pub add_description_on_new: bool,
     pub add_timestamp_on_edit: bool,
@@ -40,6 +53,7 @@ impl Default for DataSettings {
 pub struct Settings {
     pub data: DataSettings,
     pub note: NoteSettings,
+    pub output: OutputSettings,
 }
 
 impl Display for Settings {
