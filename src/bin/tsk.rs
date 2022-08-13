@@ -3,7 +3,7 @@ use anyhow::{Result, Context};
 use bat::{PrettyPrinter, Input};
 use chrono::NaiveDateTime;
 use clap::{Parser, Subcommand};
-use cli_table::{Cell, Table, Style, print_stdout, format::Border};
+use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
 use tsk_rs::{task::{Task, TaskPriority}, settings::Settings};
@@ -181,10 +181,22 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         } else {
             "[stopped]".to_string()
         };
-        task_cells.push(vec![found_task.id.cell(), found_task.description.clone().cell(),
-            found_task.project.clone().unwrap_or_else(|| {"".to_string()}).cell(),
-            found_task.score()?.cell(),
-            runtime_str.cell(),
+        let score = found_task.score()?;
+        let cell_color: Option<Color> = if (3..5).contains(&score) {
+            Some(Color::Green)
+        } else if (5..9).contains(&score) {
+            Some(Color::Yellow)
+        } else if score >= 9 {
+            Some(Color::Red)
+        } else {
+            None
+        };
+        task_cells.push(vec![
+            found_task.id.cell().foreground_color(cell_color),
+            found_task.description.clone().cell().foreground_color(cell_color),
+            found_task.project.clone().unwrap_or_else(|| {"".to_string()}).cell().foreground_color(cell_color),
+            found_task.score()?.cell().foreground_color(cell_color),
+            runtime_str.cell().foreground_color(cell_color),
             ]);
     }
 
@@ -192,13 +204,14 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         let tasks_table = task_cells.table()
             .title(
                 vec![
-                    "ID".cell().bold(true),
-                    "Description".cell().bold(true),
-                    "Project".cell().bold(true),
-                    "Score".cell().bold(true),
-                    "Cur. runtime".cell().bold(true)
+                    "ID".cell().bold(true).underline(true),
+                    "Description".cell().bold(true).underline(true),
+                    "Project".cell().bold(true).underline(true),
+                    "Score".cell().bold(true).underline(true),
+                    "Cur. runtime".cell().bold(true).underline(true),
                 ]) // headers of the table
-            .border(Border::builder().build()); // empty border around the table
+            .border(Border::builder().build())
+            .separator(Separator::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
         println!("No tasks");
