@@ -4,7 +4,6 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::Border, print_stdout};
 use question::{Question, Answer};
 use tsk_rs::{settings::Settings, task::{Task, TaskError}, note::Note};
-use edit::edit;
 use glob::glob;
 use bat::{Input, PrettyPrinter};
 
@@ -199,11 +198,11 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             let utc_timestamp = chrono::offset::Utc::now();
             md = format!("{}## {}\n\n", md, utc_timestamp);
         }
-        md = edit(md).with_context(|| {"while starting an external editor"})?;
+        md = edit::edit_with_builder(md, edit::Builder::new().suffix(".md")).with_context(|| {"while starting an external editor"})?;
         note.markdown = Some(md);
     } else {
         // modify the raw YAML notation of the task file
-        let new_yaml = edit(note.to_yaml_string()?).with_context(|| {"while starting an external editor"})?;
+        let new_yaml = edit::edit_with_builder(note.to_yaml_string()?, edit::Builder::new().suffix(".yaml")).with_context(|| {"while starting an external editor"})?;
         note = Note::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified note yaml"})?;
     }
     note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified note yaml file"})?;

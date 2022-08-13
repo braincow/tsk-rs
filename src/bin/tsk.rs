@@ -7,7 +7,6 @@ use hhmmss::Hhmmss;
 use question::{Answer, Question};
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
-use edit::edit;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -197,7 +196,7 @@ fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) 
 fn edit_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
-    let new_yaml = edit(task.to_yaml_string()?).with_context(|| {"while starting an external editor"})?;
+    let new_yaml = edit::edit_with_builder(task.to_yaml_string()?, edit::Builder::new().suffix(".yaml")).with_context(|| {"while starting an external editor"})?;
     task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
 
