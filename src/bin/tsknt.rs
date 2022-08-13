@@ -41,7 +41,7 @@ enum Commands {
         force: bool,
     },
     /// show note(s)
-    Show {
+    List {
         /// task id
         #[clap(value_parser)]
         id: Option<String>,
@@ -64,17 +64,17 @@ fn main() -> Result<()> {
         Some(Commands::Jot { id, raw }) => {
             jot_note(id, raw, &settings)
         },
-        Some(Commands::Show {id, orphaned, completed }) => {
-            show_note(id, orphaned, completed, &settings)
+        Some(Commands::List {id, orphaned, completed }) => {
+            list_note(id, orphaned, completed, &settings)
         },
         Some(Commands::Delete { id, force }) => {
             delete_note(id, force, &settings)
         }
-        None => { show_note(&None, &false, &false, &settings) }
+        None => { list_note(&None, &false, &false, &settings) }
     }
 }
 
-fn show_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<()> {
+fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<()> {
     let mut note_cells = vec![];
 
     let mut note_pathbuf: PathBuf = settings.note_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
