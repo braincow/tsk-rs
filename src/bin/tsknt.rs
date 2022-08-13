@@ -52,6 +52,8 @@ enum Commands {
         #[clap(short, long, value_parser)]
         completed: bool,
     },
+    /// display the current configuration of the tsk-rs suite
+    Config,
 }
 
 fn main() -> Result<()> {
@@ -69,7 +71,11 @@ fn main() -> Result<()> {
         },
         Some(Commands::Delete { id, force }) => {
             delete_note(id, force, &settings)
-        }
+        },
+        Some(Commands::Config) => {
+            println!("{}", settings);
+            Ok(())
+        },
         None => { list_note(&None, &false, &false, &settings) }
     }
 }
