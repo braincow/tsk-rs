@@ -1,5 +1,4 @@
 use std::{path::PathBuf, fs::remove_file};
-
 use anyhow::{Result, Context};
 use bat::{PrettyPrinter, Input};
 use clap::{Parser, Subcommand};

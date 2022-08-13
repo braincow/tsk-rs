@@ -1,5 +1,4 @@
 use std::{path::PathBuf, fs::remove_file};
-
 use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::Border, print_stdout};
