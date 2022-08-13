@@ -1,7 +1,7 @@
 use std::{path::PathBuf, fs::remove_file};
 use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
-use cli_table::{Cell, Table, Style, format::Border, print_stdout};
+use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
 use question::{Question, Answer};
 use tsk_rs::{settings::Settings, task::{Task, TaskError}, note::Note};
 use glob::glob;
@@ -137,11 +137,12 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
     if !note_cells.is_empty() {
         let tasks_table = note_cells.table()
             .title(
-                vec!["ID".cell().bold(true),
-                "Description".cell().bold(true),
-                "Project".cell().bold(true)]) // headers of the table
-            .border(Border::builder().build()); // empty border around the table
-        print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
+                vec!["Note ID".cell().bold(true).underline(true),
+                "Description".cell().bold(true).underline(true),
+                "Project".cell().bold(true).underline(true)]) // headers of the table
+            .border(Border::builder().build())
+            .separator(Separator::builder().build()); // empty border around the table
+            print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
         println!("No task notes");
     }

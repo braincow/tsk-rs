@@ -204,7 +204,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         let tasks_table = task_cells.table()
             .title(
                 vec![
-                    "ID".cell().bold(true).underline(true),
+                    "Task ID".cell().bold(true).underline(true),
                     "Description".cell().bold(true).underline(true),
                     "Project".cell().bold(true).underline(true),
                     "Score".cell().bold(true).underline(true),
