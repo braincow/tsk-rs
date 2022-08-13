@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::Border};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
-use tsk_rs::{task::Task, settings::Settings};
+use tsk_rs::{task::{Task, TaskPriority}, settings::Settings};
 use glob::glob;
 
 #[derive(Parser)]
@@ -79,6 +79,24 @@ enum Commands {
     },
     /// display the current configuration of the tsk-rs suite
     Config,
+    /// Set task characteristics like priority, due date and etc
+    Set {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+        /// set priority to one in enum
+        #[clap(short,long,value_enum)]
+        priority: Option<TaskPriority>,
+    },
+    /// Unset task characteristics
+    Unset {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+        /// unset priority
+        #[clap(short,long,value_parser)]
+        priority: bool,
+    }
 }
 
 fn main() -> Result<()> {
@@ -88,6 +106,12 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
+        Some(Commands::Set { id, priority }) => {
+            set_characteristic(id, priority, &settings)
+        },
+        Some(Commands::Unset { id, priority }) => {
+            unset_characteristic(id, priority, &settings)
+        },
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
         },
@@ -246,6 +270,37 @@ fn show_config(settings: &Settings) -> Result<()> {
         .grid(settings.output.grid)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
+
+    Ok(())
+}
+
+fn set_characteristic(id: &String, priority: &Option<TaskPriority>, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    if let Some(priority) = priority {
+        let prio_str: &str = priority.into();
+        task.metadata.insert("tsk-rs-task-priority".to_string(), prio_str.to_string());
+        println!("Priority was modified for task '{}'", task.id);
+    }
+
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+
+    Ok(())
+}
+
+fn unset_characteristic(id: &String, priority: &bool, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    if *priority {
+        let old_prio = task.metadata.remove("tsk-rs-task-priority");
+        if old_prio.is_some() {
+            println!("Priority is now unset for task '{}'", task.id);
+        }
+    }
+
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
 
     Ok(())
 }

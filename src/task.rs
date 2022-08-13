@@ -1,14 +1,21 @@
 use crate::parser::task_lexicon::{Expression, parse_task};
-
 use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File, fmt::Display};
-
 use chrono::{DateTime, Utc, Duration};
 use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use simple_file_rotation::FileRotation;
+use strum::IntoStaticStr;
 use thiserror::Error;
 use anyhow::{bail, Result, Context};
 use uuid::Uuid;
+
+#[derive(IntoStaticStr, clap::ValueEnum, Clone)]
+pub enum TaskPriority {
+   Low,
+   Medium,
+   High,
+   Critical,
+}
 
 #[derive(Error, Debug, PartialEq)]
 pub enum TaskError {
