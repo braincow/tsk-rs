@@ -1,6 +1,7 @@
 use std::{path::PathBuf, fs::remove_file};
 use anyhow::{Result, Context};
 use bat::{PrettyPrinter, Input};
+use chrono::NaiveDateTime;
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::Border};
 use hhmmss::Hhmmss;
@@ -87,6 +88,9 @@ enum Commands {
         /// set priority to one in enum
         #[clap(short,long,value_enum)]
         priority: Option<TaskPriority>,
+        /// set due date of the task
+        #[clap(short,long,value_parser)]
+        duedate: Option<NaiveDateTime>,
     },
     /// Unset task characteristics
     Unset {
@@ -96,6 +100,9 @@ enum Commands {
         /// unset priority
         #[clap(short,long,value_parser)]
         priority: bool,
+        /// unset due date
+        #[clap(short,long,value_parser)]
+        duedate: bool,
     }
 }
 
@@ -106,11 +113,11 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Set { id, priority }) => {
-            set_characteristic(id, priority, &settings)
+        Some(Commands::Set { id, priority, duedate }) => {
+            set_characteristic(id, priority, duedate, &settings)
         },
-        Some(Commands::Unset { id, priority }) => {
-            unset_characteristic(id, priority, &settings)
+        Some(Commands::Unset { id, priority, duedate }) => {
+            unset_characteristic(id, priority, duedate, &settings)
         },
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
@@ -274,33 +281,61 @@ fn show_config(settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn set_characteristic(id: &String, priority: &Option<TaskPriority>, settings: &Settings) -> Result<()> {
+fn set_characteristic(id: &String, priority: &Option<TaskPriority>, duedate: &Option<NaiveDateTime>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    let mut modified = false;
 
     if let Some(priority) = priority {
         let prio_str: &str = priority.into();
         task.metadata.insert("tsk-rs-task-priority".to_string(), prio_str.to_string());
-        println!("Priority was modified for task '{}'", task.id);
+
+        modified = true;
+        println!("Priority was set/modified");
     }
 
-    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+    if let Some(duedate) = duedate {
+        task.metadata.insert("tsk-rs-task-due-time".to_string(), duedate.to_string());
+
+        modified = true;
+        println!("Due date was set/modified");
+    }
+
+    if modified {
+        task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+        println!("Modifications saved for task '{}'", task.id);
+    }
 
     Ok(())
 }
 
-fn unset_characteristic(id: &String, priority: &bool, settings: &Settings) -> Result<()> {
+fn unset_characteristic(id: &String, priority: &bool, duedate: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    let mut modified = false;
 
     if *priority {
         let old_prio = task.metadata.remove("tsk-rs-task-priority");
         if old_prio.is_some() {
-            println!("Priority is now unset for task '{}'", task.id);
+            modified = true;
+            println!("Priority is now unset");
         }
     }
 
-    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+    if *duedate {
+        let old_duedate = task.metadata.remove("tsk-rs-task-due-time");
+        if old_duedate.is_some() {
+            modified = true;
+            println!("Due date is now unset");
+        }
+    }
+
+    if modified {
+        task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+        println!("Modifications saved for task '{}'", task.id);
+    }
 
     Ok(())
 }
