@@ -3,6 +3,7 @@ use std::{path::PathBuf, fs::remove_file};
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::Border};
+use hhmmss::Hhmmss;
 use question::{Answer, Question};
 use tsk_rs::{task::Task, settings::Settings};
 use glob::glob;
@@ -30,7 +31,7 @@ enum Commands {
         descriptor: Vec<String>,
     },
     /// Show and/or list tasks
-    Show {
+    List {
         /// task id or part of one
         #[clap(value_parser)]
         id: Option<String>,
@@ -50,7 +51,22 @@ enum Commands {
         #[clap(short, long, value_parser)]
         force: bool,
     },
-    /// EDit raw datafile of the task (for advanced users)
+    /// Start tracking a task
+    Start {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+        /// optional annotation for the job at hand
+        #[clap(value_parser)]
+        annotation: Option<String>,
+    },
+    /// Stop from tracking a task
+    Stop {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+    },
+    /// Edit raw datafile of the task (for advanced users)
     Edit {
         /// task id
         #[clap(value_parser)]
@@ -74,8 +90,8 @@ fn main() -> Result<()> {
             println!("{}", settings);
             Ok(())
         },
-        Some(Commands::Show { id, include_done }) => {
-            show_tasks(id, include_done, &settings)
+        Some(Commands::List { id, include_done }) => {
+            list_tasks(id, include_done, &settings)
         },
         Some(Commands::Done { id, delete, force}) => {
             complete_task(id, delete, force, &settings)
@@ -83,7 +99,13 @@ fn main() -> Result<()> {
         Some(Commands::Edit { id }) => {
             edit_task(id, &settings)
         },
-        None => {show_tasks(&None, &false, &settings)}
+        Some(Commands::Start { id, annotation }) => {
+            start_task(id, annotation, &settings)
+        },
+        Some(Commands::Stop { id }) => {
+            stop_task(id, &settings)
+        },
+        None => {list_tasks(&None, &false, &settings)}
     }
 }
 
@@ -95,7 +117,7 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
+fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
     let mut task_cells = vec![];
 
     let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
@@ -107,17 +129,23 @@ fn show_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
         if !task.done || *include_done {
+            let runtime = task.current_runtime().unwrap();
+            let runtime_str = Hhmmss::hhmmss(&runtime);
             task_cells.push(vec![task.id.cell(), task.description.cell(),
                 task.project.unwrap_or_else(|| {"".to_string()}).cell(),
-                ]);
+                runtime_str.cell(),
+                ]);   
         }
     }
     if !task_cells.is_empty() {
         let tasks_table = task_cells.table()
             .title(
-                vec!["ID".cell().bold(true),
-                "Description".cell().bold(true),
-                "Project".cell().bold(true)]) // headers of the table
+                vec![
+                    "ID".cell().bold(true),
+                    "Description".cell().bold(true),
+                    "Project".cell().bold(true),
+                    "Cur. runtime".cell().bold(true)
+                ]) // headers of the table
             .border(Border::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
@@ -161,6 +189,24 @@ fn edit_task(id: &String, settings: &Settings) -> Result<()> {
     task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
 
+    Ok(())
+}
+
+fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    task.start(annotation).with_context(|| {"while starting time tracking"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+    println!("Started time tracking for task '{}'", task.id);
+    Ok(())
+}
+
+fn stop_task(id: &String, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    task.stop().with_context(|| {"while stopping time tracking"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+    println!("Stopped time tracking for task '{}'", task.id);
     Ok(())
 }
 

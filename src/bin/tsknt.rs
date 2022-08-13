@@ -155,7 +155,6 @@ fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-
 fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for reading"})?;
