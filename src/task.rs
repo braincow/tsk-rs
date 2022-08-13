@@ -1,15 +1,15 @@
 use crate::parser::task_lexicon::{Expression, parse_task};
-use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File, fmt::Display};
-use chrono::{DateTime, Utc, Duration};
+use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File, fmt::Display, str::FromStr};
+use chrono::{DateTime, Duration, Local};
 use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use simple_file_rotation::FileRotation;
-use strum::IntoStaticStr;
+use strum::{IntoStaticStr, EnumString};
 use thiserror::Error;
 use anyhow::{bail, Result, Context};
 use uuid::Uuid;
 
-#[derive(IntoStaticStr, clap::ValueEnum, Clone)]
+#[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone)]
 pub enum TaskPriority {
    Low,
    Medium,
@@ -37,12 +37,12 @@ pub enum TaskError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeTrack {
-    pub start_time: DateTime<Utc>,
-    pub end_time: Option<DateTime<Utc>>,
+    pub start_time: DateTime<Local>,
+    pub end_time: Option<DateTime<Local>>,
     pub annotation: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: Uuid,
     pub description: String,
@@ -88,7 +88,7 @@ impl Task {
             bail!(TaskError::TaskAlreadyCompleted);
         }
         if !self.is_running() {
-            let timestamp = chrono::offset::Utc::now();
+            let timestamp = chrono::offset::Local::now();
             let mut timetracks: Vec<TimeTrack>;
             if self.timetracker.is_some() {
                 timetracks = self.timetracker.as_ref().unwrap().to_vec();
@@ -110,7 +110,7 @@ impl Task {
         }
 
         if self.is_running() {
-            let timestamp = chrono::offset::Utc::now();
+            let timestamp = chrono::offset::Local::now();
             let (pos, mut timetrack) = self.current_timetrack().unwrap();
             let mut timetracks: Vec<TimeTrack> = self.timetracker.as_ref().unwrap().to_vec();
             timetrack.end_time = Some(timestamp);
@@ -128,7 +128,7 @@ impl Task {
         if !self.is_running() {
             return None;
         }
-        let now = chrono::offset::Utc::now();
+        let now = chrono::offset::Local::now();
         let (_, timetrack) = self.current_timetrack().unwrap();
         let runtime = now - timetrack.start_time;
 
@@ -156,6 +156,7 @@ impl Task {
         let options = FileOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .append(false);
         {
             let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options)
@@ -178,7 +179,7 @@ impl Task {
         if !self.done {
             // only mark as done and add metadata if the task is not done yet. this keeps original task-completed-time intact
             self.done = true;
-            let timestamp = chrono::offset::Utc::now();
+            let timestamp = chrono::offset::Local::now();
             self.metadata.insert(String::from("tsk-rs-task-completed-time"), timestamp.to_rfc3339());    
         }
 
@@ -186,7 +187,7 @@ impl Task {
     }
 
     pub fn new(description: String) -> Self {
-        let timestamp = chrono::offset::Utc::now();
+        let timestamp = chrono::offset::Local::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
         Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata, timetracker: None }
@@ -260,7 +261,7 @@ impl Task {
             ret_project = Some(project);
         }
 
-        let timestamp = chrono::offset::Utc::now();
+        let timestamp = chrono::offset::Local::now();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
 
         Ok(Self {
@@ -273,6 +274,61 @@ impl Task {
             timetracker: None,
         })
     }
+
+    pub fn score(&self) -> Result<f32> {
+        // the more "fleshed out" the task is the more higher score it should get
+        let mut score: f32 = 0.0;
+    
+        if self.project.is_some() {
+            // project is valued at 3 points
+            score += 3.0;
+        }
+    
+        if self.tags.is_some() {
+            // each hashtag is valued at two (2) points
+            score += (self.tags.as_ref().unwrap().len() * 2) as f32;
+        }
+    
+        if self.is_running() {
+            // if task is running it gains 5 points
+            score += 5.0;
+        }
+    
+        if self.timetracker.is_some() {
+            // each timetracker entry grants half a point
+            score += self.timetracker.as_ref().unwrap().len() as f32 * 0.5;
+        }
+    
+        if let Some(priority) = self.metadata.get("tsk-rs-task-priority") {
+            // priorities have different weights in the score
+            match TaskPriority::from_str(priority).with_context(|| {"while converting task priority to enum"})? {
+                TaskPriority::Low => score += 1.0,
+                TaskPriority::Medium => score += 3.0,
+                TaskPriority::High => score += 8.0,
+                TaskPriority::Critical => score += 13.0,
+            }
+        }
+    
+        if let Some(duedate_str) = self.metadata.get("tsk-rs-task-due-date") {
+            // if due date is present then WHEN has a different score
+            let duedate = DateTime::from_str(duedate_str).with_context(|| {"while parsing due date string as a datetime"})?;
+            let timestamp = chrono::offset::Local::now();
+            let diff = duedate - timestamp;
+    
+            if diff.num_days() <= 1 {
+                score += 10.0;
+            } else if diff.num_days() <= 2 && diff.num_days() >= 1 {
+                score += 7.0;
+            } else if diff.num_days() <= 5 && diff.num_days() >= 2 {
+                score += 5.0;
+            } else {
+                score += 1.5;
+            }
+        }
+    
+        Ok(score)
+    }
+    
 }
 
 #[cfg(test)]

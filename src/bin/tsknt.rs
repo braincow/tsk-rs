@@ -195,8 +195,8 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             md = format!("# {}\n\n", task.description);
         }
         if settings.note.add_timestamp_on_edit {
-            let utc_timestamp = chrono::offset::Utc::now();
-            md = format!("{}## {}\n\n", md, utc_timestamp);
+            let local_timestamp = chrono::offset::Local::now();
+            md = format!("{}## {}\n\n", md, local_timestamp);
         }
         md = edit::edit_with_builder(md, edit::Builder::new().suffix(".md")).with_context(|| {"while starting an external editor"})?;
         note.markdown = Some(md);

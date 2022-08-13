@@ -23,7 +23,7 @@ impl Note {
     pub fn new(task_id: &Uuid) -> Self {
 
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
-        let timestamp = chrono::offset::Utc::now();
+        let timestamp = chrono::offset::Local::now();
         metadata.insert(String::from("tsk-rs-note-create-time"), timestamp.to_rfc3339());
 
         Self {
@@ -63,6 +63,7 @@ impl Note {
         let options = FileOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .append(false);
         {
             let mut filelock= FileLock::lock(note_pathbuf, should_we_block, options)

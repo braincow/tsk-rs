@@ -173,10 +173,11 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             } else {
                 "[stopped]".to_string()
             };
-            task_cells.push(vec![task.id.cell(), task.description.cell(),
-                task.project.unwrap_or_else(|| {"".to_string()}).cell(),
+            task_cells.push(vec![task.id.cell(), task.description.clone().cell(),
+                task.project.clone().unwrap_or_else(|| {"".to_string()}).cell(),
+                task.score()?.cell(),
                 runtime_str.cell(),
-                ]);   
+                ]);
         }
     }
     if !task_cells.is_empty() {
@@ -186,6 +187,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
                     "ID".cell().bold(true),
                     "Description".cell().bold(true),
                     "Project".cell().bold(true),
+                    "Score".cell().bold(true),
                     "Cur. runtime".cell().bold(true)
                 ]) // headers of the table
             .border(Border::builder().build()); // empty border around the table
