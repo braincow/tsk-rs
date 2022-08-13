@@ -1,6 +1,7 @@
 use std::{path::PathBuf, fs::remove_file};
 
 use anyhow::{Result, Context};
+use bat::{PrettyPrinter, Input};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::Border};
 use hhmmss::Hhmmss;
@@ -96,8 +97,7 @@ fn main() -> Result<()> {
             show_task(id, &settings)
         },
         Some(Commands::Config) => {
-            println!("{}", settings);
-            Ok(())
+            show_config(&settings)
         },
         Some(Commands::List { id, include_done }) => {
             list_tasks(id, include_done, &settings)
@@ -226,7 +226,30 @@ fn stop_task(id: &String, settings: &Settings) -> Result<()> {
 fn show_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file"})?;
-    println!("{}", task);
+
+    let task_yaml = task.to_yaml_string()?;
+    PrettyPrinter::new()
+        .language("yaml")
+        .input(Input::from_bytes(task_yaml.as_bytes()))
+        .header(true)
+        .grid(true)
+
+        .print()
+        .with_context(|| {"while trying to prettyprint yaml"})?;
+
+    Ok(())
+}
+
+fn show_config(settings: &Settings) -> Result<()> {
+    let settings_toml = format!("{}", settings);
+    PrettyPrinter::new()
+        .language("toml")
+        .input(Input::from_bytes(settings_toml.as_bytes()))
+        .header(true)
+        .grid(true)
+
+        .print()
+        .with_context(|| {"while trying to prettyprint yaml"})?;
 
     Ok(())
 }

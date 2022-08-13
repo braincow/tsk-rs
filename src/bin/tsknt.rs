@@ -7,6 +7,7 @@ use question::{Question, Answer};
 use tsk_rs::{settings::Settings, task::{Task, TaskError}, note::Note};
 use edit::edit;
 use glob::glob;
+use bat::{Input, PrettyPrinter};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -85,8 +86,7 @@ fn main() -> Result<()> {
             delete_note(id, force, &settings)
         },
         Some(Commands::Config) => {
-            println!("{}", settings);
-            Ok(())
+            show_config(&settings)
         },
         None => { list_note(&None, &false, &false, &settings) }
     }
@@ -219,11 +219,39 @@ fn read_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     if !raw {
         // by default, only show the markdown inside the note yaml
         if let Some(md) = note.markdown {
-            println!("{}", md);
+            PrettyPrinter::new()
+                .language("markdown")
+                .input(Input::from_bytes(md.as_bytes()))
+                .header(true)
+                .grid(true)
+                .print()
+                .with_context(|| {"while trying to prettyprint markdown"})?;
         }
     } else {
-        println!("{}", note);
+        let note_yaml = note.to_yaml_string()?;
+        PrettyPrinter::new()
+            .language("yaml")
+            .input(Input::from_bytes(note_yaml.as_bytes()))
+            .header(true)
+            .grid(true)
+
+            .print()
+            .with_context(|| {"while trying to prettyprint yaml"})?;
     }
+
+    Ok(())
+}
+
+fn show_config(settings: &Settings) -> Result<()> {
+    let settings_toml = format!("{}", settings);
+    PrettyPrinter::new()
+        .language("toml")
+        .input(Input::from_bytes(settings_toml.as_bytes()))
+        .header(true)
+        .grid(true)
+
+        .print()
+        .with_context(|| {"while trying to prettyprint yaml"})?;
 
     Ok(())
 }
