@@ -309,12 +309,15 @@ impl Task {
             }
         }
     
-        if let Some(duedate_str) = self.metadata.get("tsk-rs-task-due-date") {
+        if let Some(duedate_str) = self.metadata.get("tsk-rs-task-due-time") {
             // if due date is present then WHEN has a different score
             let duedate = DateTime::from_str(duedate_str).with_context(|| {"while parsing due date string as a datetime"})?;
             let timestamp = chrono::offset::Local::now();
             let diff = duedate - timestamp;
     
+            // println!("{:?}", duedate);
+            // println!("{:?}", timestamp);
+            // println!("{:?}", diff);
             if diff.num_days() <= 1 {
                 score += 10;
             } else if diff.num_days() <= 2 && diff.num_days() >= 1 {

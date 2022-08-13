@@ -20,9 +20,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// adds a new task from task description string
+    /// Create or edit a note for an task
     #[clap(allow_missing_positional = true)]
-    Jot {
+    Edit {
         /// task id
         #[clap(value_parser)]
         id: String,
@@ -31,7 +31,7 @@ enum Commands {
         raw: bool,
     },
     /// Read note or entire definition
-    Read {
+    Show {
         /// task id
         #[clap(value_parser)]
         id: String,
@@ -71,11 +71,11 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Jot { id, raw }) => {
-            jot_note(id, raw, &settings)
+        Some(Commands::Edit { id, raw }) => {
+            edit_note(id, raw, &settings)
         },
-        Some(Commands::Read { id, raw }) => {
-            read_note(id, raw, &settings)
+        Some(Commands::Show { id, raw }) => {
+            show_note(id, raw, &settings)
         },
         Some(Commands::List {id, orphaned, completed }) => {
             list_note(id, orphaned, completed, &settings)
@@ -172,7 +172,7 @@ fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
+fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for reading"})?;
 
@@ -211,7 +211,7 @@ fn jot_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn read_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
+fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
 

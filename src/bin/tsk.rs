@@ -1,7 +1,7 @@
 use std::{path::PathBuf, fs::remove_file};
 use anyhow::{Result, Context};
 use bat::{PrettyPrinter, Input};
-use chrono::NaiveDateTime;
+use chrono::{Local, NaiveDateTime};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
@@ -182,11 +182,11 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             "[stopped]".to_string()
         };
         let score = found_task.score()?;
-        let cell_color: Option<Color> = if (3..5).contains(&score) {
+        let cell_color: Option<Color> = if (5..9).contains(&score) {
             Some(Color::Green)
-        } else if (5..9).contains(&score) {
+        } else if (10..13).contains(&score) {
             Some(Color::Yellow)
-        } else if score >= 9 {
+        } else if score > 13 {
             Some(Color::Red)
         } else {
             None
@@ -319,8 +319,7 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, duedate: &Op
     }
 
     if let Some(duedate) = duedate {
-        task.metadata.insert("tsk-rs-task-due-time".to_string(), duedate.to_string());
-
+        task.metadata.insert("tsk-rs-task-due-time".to_string(), duedate.and_local_timezone(Local).unwrap().to_rfc3339());
         modified = true;
         println!("Due date was set/modified");
     }
