@@ -1,5 +1,6 @@
 use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
 use anyhow::{Result, Context};
+use bat::{PrettyPrinter, Input};
 use config::Config;
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
@@ -99,6 +100,19 @@ impl Settings {
         Ok(pathbuf.to_path_buf())
     }
 
+}
+
+pub fn show_config(settings: &Settings) -> Result<()> {
+    let settings_toml = format!("{}", settings);
+    PrettyPrinter::new()
+        .language("toml")
+        .input(Input::from_bytes(settings_toml.as_bytes()))
+        .colored_output(settings.output.colors)
+        .grid(settings.output.grid)
+        .print()
+        .with_context(|| {"while trying to prettyprint yaml"})?;
+
+    Ok(())
 }
 
 // eof

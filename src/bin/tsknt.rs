@@ -3,7 +3,7 @@ use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
 use question::{Question, Answer};
-use tsk_rs::{settings::Settings, task::{Task, TaskError}, note::Note};
+use tsk_rs::{settings::{Settings, show_config}, task::{Task, TaskError}, note::Note};
 use glob::glob;
 use bat::{Input, PrettyPrinter};
 
@@ -236,19 +236,6 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             .print()
             .with_context(|| {"while trying to prettyprint yaml"})?;
     }
-
-    Ok(())
-}
-
-fn show_config(settings: &Settings) -> Result<()> {
-    let settings_toml = format!("{}", settings);
-    PrettyPrinter::new()
-        .language("toml")
-        .input(Input::from_bytes(settings_toml.as_bytes()))
-        .colored_output(settings.output.colors)
-        .grid(settings.output.grid)
-        .print()
-        .with_context(|| {"while trying to prettyprint yaml"})?;
 
     Ok(())
 }

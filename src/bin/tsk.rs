@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
-use tsk_rs::{task::{Task, TaskPriority}, settings::Settings};
+use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config}};
 use glob::glob;
 
 #[derive(Parser)]
@@ -283,19 +283,6 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     PrettyPrinter::new()
         .language("yaml")
         .input(Input::from_bytes(task_yaml.as_bytes()))
-        .colored_output(settings.output.colors)
-        .grid(settings.output.grid)
-        .print()
-        .with_context(|| {"while trying to prettyprint yaml"})?;
-
-    Ok(())
-}
-
-fn show_config(settings: &Settings) -> Result<()> {
-    let settings_toml = format!("{}", settings);
-    PrettyPrinter::new()
-        .language("toml")
-        .input(Input::from_bytes(settings_toml.as_bytes()))
         .colored_output(settings.output.colors)
         .grid(settings.output.grid)
         .print()
