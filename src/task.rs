@@ -309,10 +309,11 @@ impl Task {
             }
         }
     
+        let timestamp = chrono::offset::Local::now();
+
         if let Some(duedate_str) = self.metadata.get("tsk-rs-task-due-time") {
             // if due date is present then WHEN has a different score
             let duedate = DateTime::from_str(duedate_str).with_context(|| {"while parsing due date string as a datetime"})?;
-            let timestamp = chrono::offset::Local::now();
             let diff = duedate - timestamp;
 
             if diff.num_days() <= 1 {
@@ -325,10 +326,16 @@ impl Task {
                 score += 2;
             }
         }
-    
+
+        let create_date = DateTime::from_str(self.metadata.get("tsk-rs-task-due-time").unwrap()).with_context(|| {"while reading task creation date"})?;
+        let create_diff = timestamp - create_date;
+        // as the task gets older each day gives 0.2 worth of weight to score. this is rounded when
+        //  returned as usize, but this means that every five days grants one point
+        score += (create_diff.num_days() as f32 * 0.1) as usize;
+
         Ok(score)
     }
-    
+
 }
 
 #[cfg(test)]
