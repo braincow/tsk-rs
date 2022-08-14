@@ -329,9 +329,9 @@ impl Task {
 
         let create_date = DateTime::from_str(self.metadata.get("tsk-rs-task-create-time").unwrap()).with_context(|| {"while reading task creation date"})?;
         let create_diff = timestamp - create_date;
-        // as the task gets older each day gives 0.2 worth of weight to score. this is rounded when
-        //  returned as usize, but this means that every five days grants one point
-        score += (create_diff.num_days() as f32 * 0.1) as usize;
+        // as the task gets older each day gives 0.14285715 worth of weight to score. this is rounded when
+        //  returned as usize, but this means that every seven days grants one point
+        score += (create_diff.num_days() as f32 * 0.142_857_15) as usize;
 
         Ok(score)
     }
