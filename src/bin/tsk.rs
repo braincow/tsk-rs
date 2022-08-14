@@ -182,11 +182,11 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             "[stopped]".to_string()
         };
         let score = found_task.score()?;
-        let cell_color: Option<Color> = if (5..9).contains(&score) {
+        let cell_color: Option<Color> = if (7..12).contains(&score) {
             Some(Color::Green)
-        } else if (10..13).contains(&score) {
+        } else if (13..18).contains(&score) {
             Some(Color::Yellow)
-        } else if score > 13 {
+        } else if score > 19 {
             Some(Color::Red)
         } else {
             None
