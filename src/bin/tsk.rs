@@ -203,7 +203,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
                 desc = format!("{} #next", desc);
             }
             if tags.contains(&"hold".to_string()) {
-                desc = format!("{} #next", desc);
+                desc = format!("{} #hold", desc);
             }
             desc
         } else {
