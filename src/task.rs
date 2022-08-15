@@ -330,6 +330,23 @@ impl Task {
         //  returned as usize, but this means that every seven days grants one point
         score += (create_diff.num_days() as f32 * 0.142_857_15) as usize;
 
+        // special tags (applied last) reduce the or add to the score
+        if let Some(tags) = &self.tags {
+            if tags.contains(&"next".to_string()) {
+                // just like in taskwarrior special tag "next" gives a huge boost
+                score += 100;
+            }
+
+            if tags.contains(&"hold".to_string()) {
+                // hold will reduce score
+                if score >= 20  {
+                    score -= 20;
+                } else {
+                    score = 0;
+                }
+            }
+        }
+
         Ok(score)
     }
 

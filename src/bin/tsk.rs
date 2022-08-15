@@ -94,6 +94,9 @@ enum Commands {
         /// set due date of the task
         #[clap(short,long,value_parser)]
         due_date: Option<NaiveDateTime>,
+        /// add tags to task
+        #[clap(short,long,value_parser)]
+        tags: Option<Vec<String>>,
     },
     /// Unset task characteristics
     Unset {
@@ -105,7 +108,10 @@ enum Commands {
         priority: bool,
         /// unset due date
         #[clap(short,long,value_parser)]
-        duedate: bool,
+        due_date: bool,
+        /// remove tags from task
+        #[clap(short,long,value_parser)]
+        tags: Option<Vec<String>>,
     }
 }
 
@@ -116,11 +122,11 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Set { id, priority, due_date }) => {
-            set_characteristic(id, priority, due_date, &settings)
+        Some(Commands::Set { id, priority, due_date, tags }) => {
+            set_characteristic(id, priority, due_date, tags, &settings)
         },
-        Some(Commands::Unset { id, priority, duedate }) => {
-            unset_characteristic(id, priority, duedate, &settings)
+        Some(Commands::Unset { id, priority, due_date, tags }) => {
+            unset_characteristic(id, priority, due_date, tags, &settings)
         },
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
@@ -297,7 +303,7 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>, settings: &Settings) -> Result<()> {
+fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>, tags: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -317,6 +323,27 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
         println!("Due date was set/modified");
     }
 
+    if let Some(tags) = tags {
+        let mut task_tags = if let Some(task_tags) = task.tags.clone() {
+            task_tags
+        } else {
+            vec![]
+        };
+
+        let mut tags_modified = false;
+        for new_tag in tags {
+            if !task_tags.contains(new_tag) {
+                task_tags.push(new_tag.to_string());
+                tags_modified = true;
+            }
+        }
+
+        if tags_modified {
+            task.tags = Some(task_tags);
+            modified = true;
+        }
+    }
+
     if modified {
         task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
         println!("Modifications saved for task '{}'", task.id);
@@ -325,7 +352,7 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
     Ok(())
 }
 
-fn unset_characteristic(id: &String, priority: &bool, duedate: &bool, settings: &Settings) -> Result<()> {
+fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -339,11 +366,32 @@ fn unset_characteristic(id: &String, priority: &bool, duedate: &bool, settings: 
         }
     }
 
-    if *duedate {
+    if *due_date {
         let old_duedate = task.metadata.remove("tsk-rs-task-due-time");
         if old_duedate.is_some() {
             modified = true;
             println!("Due date is now unset");
+        }
+    }
+
+    if let Some(tags) = tags {
+        let mut task_tags = if let Some(task_tags) = task.tags.clone() {
+            task_tags
+        } else {
+            vec![]
+        };
+
+        let mut tags_modified = false;
+        for remove_tag in tags {
+            if let Some(index) = task_tags.iter().position(|r| r == remove_tag) {
+                task_tags.swap_remove(index);
+                tags_modified = true;
+            }
+        }
+
+        if tags_modified {
+            task.tags = Some(task_tags);
+            modified = true;
         }
     }
 
