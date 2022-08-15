@@ -184,15 +184,11 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         } else {
             "[stopped]".to_string()
         };
-        let score = found_task.score()?;
-        let cell_color: Option<Color> = if (7..12).contains(&score) {
-            Some(Color::Green)
-        } else if (13..18).contains(&score) {
-            Some(Color::Yellow)
-        } else if score > 19 {
-            Some(Color::Red)
-        } else {
-            None
+        let cell_color = match found_task.score()? {
+            7..=12 => Some(Color::Green),
+            13..=18 => Some(Color::Yellow),
+            n if n >= 19 => Some(Color::Red),
+            _ => None
         };
         task_cells.push(vec![
             found_task.id.cell().foreground_color(cell_color),

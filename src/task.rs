@@ -316,15 +316,12 @@ impl Task {
             let duedate = DateTime::from_str(duedate_str).with_context(|| {"while parsing due date string as a datetime"})?;
             let diff = duedate - timestamp;
 
-            if diff.num_days() <= 1 {
-                score += 10;
-            } else if diff.num_days() <= 2 && diff.num_days() >= 1 {
-                score += 7;
-            } else if diff.num_days() <= 5 && diff.num_days() >= 2 {
-                score += 5;
-            } else {
-                score += 2;
-            }
+            match diff.num_days() {
+                n if n < 0 => score += 25,
+                0..=2 => score += 10,
+                3..=5 => score += 5,
+                _ => score += 2,
+            };
         }
 
         let create_date = DateTime::from_str(self.metadata.get("tsk-rs-task-create-time").unwrap()).with_context(|| {"while reading task creation date"})?;
