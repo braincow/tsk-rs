@@ -71,6 +71,9 @@ enum Commands {
         /// task id
         #[clap(value_parser)]
         id: String,
+        /// complete task as well
+        #[clap(value_parser)]
+        complete: Option<bool>,
     },
     /// Edit raw datafile of the task (for advanced users)
     Edit {
@@ -90,7 +93,7 @@ enum Commands {
         priority: Option<TaskPriority>,
         /// set due date of the task
         #[clap(short,long,value_parser)]
-        duedate: Option<NaiveDateTime>,
+        due_date: Option<NaiveDateTime>,
     },
     /// Unset task characteristics
     Unset {
@@ -113,8 +116,8 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Set { id, priority, duedate }) => {
-            set_characteristic(id, priority, duedate, &settings)
+        Some(Commands::Set { id, priority, due_date }) => {
+            set_characteristic(id, priority, due_date, &settings)
         },
         Some(Commands::Unset { id, priority, duedate }) => {
             unset_characteristic(id, priority, duedate, &settings)
@@ -140,8 +143,8 @@ fn main() -> Result<()> {
         Some(Commands::Start { id, annotation }) => {
             start_task(id, annotation, &settings)
         },
-        Some(Commands::Stop { id }) => {
-            stop_task(id, &settings)
+        Some(Commands::Stop { id, complete }) => {
+            stop_task(id, complete, &settings)
         },
         None => {list_tasks(&None, &false, &settings)}
     }
@@ -266,12 +269,19 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
     Ok(())
 }
 
-fn stop_task(id: &String, settings: &Settings) -> Result<()> {
+fn stop_task(id: &String, complete: &Option<bool>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.stop().with_context(|| {"while stopping time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Stopped time tracking for task '{}'", task.id);
+    
+    if let Some(complete) = complete {
+        if *complete {
+            complete_task(id, &false, &false, settings)?;
+        }
+    }
+
     Ok(())
 }
 
@@ -291,7 +301,7 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn set_characteristic(id: &String, priority: &Option<TaskPriority>, duedate: &Option<NaiveDateTime>, settings: &Settings) -> Result<()> {
+fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -305,8 +315,8 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, duedate: &Op
         println!("Priority was set/modified");
     }
 
-    if let Some(duedate) = duedate {
-        task.metadata.insert("tsk-rs-task-due-time".to_string(), duedate.and_local_timezone(Local).unwrap().to_rfc3339());
+    if let Some(due_date) = due_date {
+        task.metadata.insert("tsk-rs-task-due-time".to_string(), due_date.and_local_timezone(Local).unwrap().to_rfc3339());
         modified = true;
         println!("Due date was set/modified");
     }
