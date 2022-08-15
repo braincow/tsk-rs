@@ -100,6 +100,22 @@ impl Settings {
         Ok(pathbuf.to_path_buf())
     }
 
+    pub fn task_index_db_pathbuf(&self) -> Result<PathBuf> {
+        let pathbuf = &self.task_db_pathbuf()?.join("index");
+        if !pathbuf.is_dir() {
+            create_dir_all(&pathbuf).with_context(|| {"while creating notes data directory"})?;
+        }
+        Ok(pathbuf.to_path_buf())
+    }
+
+    pub fn note_index_db_pathbuf(&self) -> Result<PathBuf> {
+        let pathbuf = &self.note_db_pathbuf()?.join("index");
+        if !pathbuf.is_dir() {
+            create_dir_all(&pathbuf).with_context(|| {"while creating notes data directory"})?;
+        }
+        Ok(pathbuf.to_path_buf())
+    }
+
 }
 
 pub fn show_config(settings: &Settings) -> Result<()> {
