@@ -242,6 +242,12 @@ fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) 
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    if task.is_running() {
+        // task is running, so first stop it
+        stop_task(id, &None, settings)?;
+    }
+
     if !delete {
         task.mark_as_completed().with_context(|| {"while modifying task"})?;
         task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
