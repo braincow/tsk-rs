@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use anyhow::{Result, Context};
 use clap::{Parser, Subcommand};
-use tantivy::{Index, Document};
+use tantivy::{Index, Document, ReloadPolicy, query::QueryParser, collector::TopDocs};
 use tsk_rs::{settings::{Settings, show_config}, index::{task_schema, note_schema}, task::Task, note::Note};
 use glob::glob;
 
@@ -133,8 +133,27 @@ fn rebuild_indexes(skip_note: &bool, skip_task: &bool, settings: &Settings) -> R
 
 fn search(phrase: String, settings: &Settings) -> Result<()> {
     // todo: search in task index
-    // todo: search in note index
+    let task_index_path = settings.task_index_db_pathbuf()?;
+    let task_index = Index::open_in_dir(task_index_path).with_context(|| {"while opening Task index"})?;
+    let task_reader = task_index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::OnCommit)
+        .try_into().with_context(|| {"while building Task index reader"})?;
+    let task_searcher = task_reader.searcher();
+    let task_schema = task_schema();
+    let task_description = task_schema.get_field("description").with_context(|| {"get index field 'description'"})?;
+    let task_project = task_schema.get_field("project").with_context(|| {"get index field 'project'"})?;
+    let task_query_parser = QueryParser::for_index(&task_index, vec![task_description, task_project]);
+    let task_query = task_query_parser.parse_query(&phrase).with_context(|| {"while parsing search phrase"})?;
+    let task_top_docs = task_searcher.search(&task_query, &TopDocs::with_limit(10)).with_context(|| {"while executing a search into Task index"})?;
+    for (_score, doc_address) in task_top_docs {
+        let retrieved_doc = task_searcher.doc(doc_address)?;
+        println!("{}", task_schema.to_json(&retrieved_doc));
+        println!("{}", _score);
+        println!("{:?}", doc_address);
+    }
 
+    // todo: search in note index
     Ok(())
 }
 
