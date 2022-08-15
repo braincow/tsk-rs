@@ -280,6 +280,12 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.start(annotation).with_context(|| {"while starting time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+
+    // if special tag (hold) is present then release the hold by modifying tags.
+    if settings.task.release_hold_on_start {
+        unset_characteristic(id, &false, &false, &Some(vec!["hold".to_string()]), settings)?;
+    }
+
     println!("Started time tracking for task '{}'", task.id);
     Ok(())
 }
@@ -398,6 +404,7 @@ fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Op
         for remove_tag in tags {
             if let Some(index) = task_tags.iter().position(|r| r == remove_tag) {
                 task_tags.swap_remove(index);
+                println!("Tag '{}' removed", remove_tag);
                 tags_modified = true;
             }
         }
