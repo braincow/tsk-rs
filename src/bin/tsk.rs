@@ -94,9 +94,9 @@ enum Commands {
         /// set due date of the task
         #[clap(short,long,value_parser)]
         due_date: Option<NaiveDateTime>,
-        /// add tags to task
+        /// add tag to task
         #[clap(short,long,value_parser)]
-        tags: Option<Vec<String>>,
+        tag: Option<Vec<String>>,
     },
     /// Unset task characteristics
     Unset {
@@ -109,9 +109,9 @@ enum Commands {
         /// unset due date
         #[clap(short,long,value_parser)]
         due_date: bool,
-        /// remove tags from task
+        /// remove tag from task
         #[clap(short,long,value_parser)]
-        tags: Option<Vec<String>>,
+        tag: Option<Vec<String>>,
     }
 }
 
@@ -122,11 +122,11 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Set { id, priority, due_date, tags }) => {
-            set_characteristic(id, priority, due_date, tags, &settings)
+        Some(Commands::Set { id, priority, due_date, tag }) => {
+            set_characteristic(id, priority, due_date, tag, &settings)
         },
-        Some(Commands::Unset { id, priority, due_date, tags }) => {
-            unset_characteristic(id, priority, due_date, tags, &settings)
+        Some(Commands::Unset { id, priority, due_date, tag }) => {
+            unset_characteristic(id, priority, due_date, tag, &settings)
         },
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
