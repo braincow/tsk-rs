@@ -1,9 +1,9 @@
-use tantivy::{schema::{Schema, TEXT, STORED}};
+use tantivy::schema::{Schema, TEXT, STORED};
 
 pub fn task_schema() -> Schema {
     let mut schema_builder = Schema::builder();
     schema_builder.add_text_field("ID", TEXT | STORED);
-    schema_builder.add_text_field("description", TEXT | STORED);
+    schema_builder.add_text_field("description", TEXT);
     schema_builder.add_text_field("project", TEXT);
     schema_builder.build()
 }
