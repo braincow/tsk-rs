@@ -196,9 +196,22 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             n if n >= 19 => Some(Color::Red),
             _ => None
         };
+        let description = if let Some(tags) = found_task.tags.clone() {
+            let mut desc = found_task.description.clone();
+            // make special tags visible
+            if tags.contains(&"next".to_string()) {
+                desc = format!("{} #next", desc);
+            }
+            if tags.contains(&"hold".to_string()) {
+                desc = format!("{} #next", desc);
+            }
+            desc
+        } else {
+            found_task.description.clone()
+        };
         task_cells.push(vec![
             found_task.id.cell().foreground_color(cell_color),
-            found_task.description.clone().cell().foreground_color(cell_color),
+            description.cell().foreground_color(cell_color),
             found_task.project.clone().unwrap_or_else(|| {"".to_string()}).cell().foreground_color(cell_color),
             found_task.score()?.cell().foreground_color(cell_color),
             runtime_str.cell().foreground_color(cell_color),
