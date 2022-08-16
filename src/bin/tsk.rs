@@ -97,6 +97,9 @@ enum Commands {
         /// add tag to task
         #[clap(short,long,value_parser)]
         tag: Option<Vec<String>>,
+        /// set/change tasks project
+        #[clap(short, long, value_parser)]
+        project: Option<String>,
     },
     /// Unset task characteristics
     Unset {
@@ -112,6 +115,9 @@ enum Commands {
         /// remove tag from task
         #[clap(short,long,value_parser)]
         tag: Option<Vec<String>>,
+        /// remove tasks project
+        #[clap(short,long,value_parser)]
+        project: bool,
     }
 }
 
@@ -122,11 +128,11 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Set { id, priority, due_date, tag }) => {
-            set_characteristic(id, priority, due_date, tag, &settings)
+        Some(Commands::Set { id, priority, due_date, tag, project }) => {
+            set_characteristic(id, priority, due_date, tag, project, &settings)
         },
-        Some(Commands::Unset { id, priority, due_date, tag }) => {
-            unset_characteristic(id, priority, due_date, tag, &settings)
+        Some(Commands::Unset { id, priority, due_date, tag, project }) => {
+            unset_characteristic(id, priority, due_date, tag, project, &settings)
         },
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
@@ -289,7 +295,7 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
 
     // if special tag (hold) is present then release the hold by modifying tags.
     if settings.task.release_hold_on_start {
-        unset_characteristic(id, &false, &false, &Some(vec!["hold".to_string()]), settings)?;
+        unset_characteristic(id, &false, &false, &Some(vec!["hold".to_string()]), &false, settings)?;
     }
 
     println!("Started time tracking for task '{}'", task.id);
@@ -328,7 +334,8 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>, tags: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>,
+        tags: &Option<Vec<String>>, project: &Option<String>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -369,6 +376,11 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
         }
     }
 
+    if project.is_some() {
+        task.project = project.clone();
+        modified = true;
+    }
+
     if modified {
         task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
         println!("Modifications saved for task '{}'", task.id);
@@ -377,7 +389,8 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
     Ok(())
 }
 
-fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+fn unset_characteristic(id: &String, priority: &bool, due_date: &bool,
+        tags: &Option<Vec<String>>, project: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -419,6 +432,11 @@ fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Op
             task.tags = Some(task_tags);
             modified = true;
         }
+    }
+
+    if *project {
+        task.project = None;
+        modified = true;
     }
 
     if modified {
