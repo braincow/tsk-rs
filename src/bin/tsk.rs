@@ -73,7 +73,7 @@ enum Commands {
         id: String,
         /// complete task as well
         #[clap(short, long, value_parser)]
-        complete: Option<bool>,
+        complete: bool,
     },
     /// Edit raw datafile of the task (for advanced users)
     Edit {
@@ -259,7 +259,7 @@ fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) 
 
     if task.is_running() {
         // task is running, so first stop it
-        stop_task(id, &None, settings)?;
+        stop_task(id, &false, settings)?;
     }
 
     if !delete {
@@ -311,17 +311,15 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
     Ok(())
 }
 
-fn stop_task(id: &String, complete: &Option<bool>, settings: &Settings) -> Result<()> {
+fn stop_task(id: &String, complete: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.stop().with_context(|| {"while stopping time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Stopped time tracking for task '{}'", task.id);
     
-    if let Some(complete) = complete {
-        if *complete {
-            complete_task(id, &false, &false, settings)?;
-        }
+    if *complete {
+        complete_task(id, &false, &false, settings)?;
     }
 
     Ok(())
