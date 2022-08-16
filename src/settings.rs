@@ -7,6 +7,19 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
+pub struct IndexSettings {
+    pub top_documents: usize,
+}
+
+impl Default for IndexSettings {
+    fn default() -> Self {
+        Self { top_documents: 5, }
+    }
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TaskSettings {
     pub release_hold_on_start: bool,
 }
@@ -68,6 +81,7 @@ pub struct Settings {
     pub note: NoteSettings,
     pub task: TaskSettings,
     pub output: OutputSettings,
+    pub index: IndexSettings,
 }
 
 impl Display for Settings {

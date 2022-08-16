@@ -10,11 +10,14 @@ db_path = "test_data" # if uncommented defaults to users data directory in the o
 #add_description_on_new = true # if false does not add '# description' header to Markdown on edit
 #add_timestamp_on_edit = true # if false does not add current date and time to Markdown on edit
 
-# [task]
-# release_hold_on_start = true # if false then if task has a special tag "hold" set it is left in place
+#[task]
+#release_hold_on_start = true # if false then if task has a special tag "hold" set it is left in place
 
 #[output]
 #colors = true # colorize task and note outputs
 #grid = true # draw a box around output
+
+#[index]
+#top_documents = 5 # how many top results should be shown from each task or note category
 
 # eof
