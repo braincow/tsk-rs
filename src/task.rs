@@ -9,7 +9,7 @@ use thiserror::Error;
 use anyhow::{bail, Result, Context};
 use uuid::Uuid;
 
-#[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone)]
+#[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone, Eq, PartialEq, Debug)]
 pub enum TaskPriority {
    Low,
    Medium,
@@ -21,6 +21,10 @@ pub enum TaskPriority {
 pub enum TaskError {
     #[error("only one project identifier allowed")]
     MultipleProjectsNotAllowed,
+    #[error("only one priority identifier allowed")]
+    MultiplePrioritiesNotAllowed,
+    #[error("only one due date identifier allowed")]
+    MultipleDuedatesNotAllowed,
     #[error("only one instance of metadata key `{0}` is allowed")]
     IdenticalMetadataKeyNotAllowed(String),
     #[error("metadata key name invalid `{0}`. try with prefix `x-{0}`")]
@@ -248,6 +252,22 @@ impl Task {
                     }
                     // set project
                     project = prj
+                },
+                Expression::Priority(prio) => {
+                    let prio_str: &str = prio.into();
+                    let key = "tsk-rs-task-priority".to_string();
+                    if metadata.contains_key(&key) {
+                        bail!(TaskError::MultiplePrioritiesNotAllowed)
+                    }
+                    metadata.insert(key, prio_str.to_string());
+                },
+                Expression::Duedate(datetime) => {
+                    let value = datetime.and_local_timezone(Local).unwrap().to_rfc3339();
+                    let key = "tsk-rs-task-due-time".to_string();
+                    if metadata.contains_key(&key) {
+                        bail!(TaskError::MultipleDuedatesNotAllowed)
+                    }
+                    metadata.insert(key, value);
                 }
             };
         }
@@ -359,6 +379,7 @@ mod tests {
     use super::*;
 
     static FULLTESTCASEINPUT: &str = "some task description here @project-here #taghere #a-second-tag %x-meta=data %x-fuu=bar additional text at the end";
+    static FULLTESTCASEINPUT2: &str = "some task description here PRJ:project-here #taghere TAG:a-second-tag META:x-meta=data %x-fuu=bar DUE:2022-08-16T16:56:00 PRIO:medium and some text at the end";
     static NOEXPRESSIONSINPUT: &str = "some task description here without expressions";
     static MULTIPROJECTINPUT: &str = "this has a @project-name, and a @second-project name";
     static DUPLICATEMETADATAINPUT: &str = "this has %x-fuu=bar definied again with %x-fuu=bar";
@@ -412,6 +433,19 @@ mod tests {
         assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
         assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
         assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
+    }
+
+    #[test]
+    fn parse_full_testcase2() {
+        let task = Task::from_task_descriptor(&FULLTESTCASEINPUT2.to_string()).unwrap();
+
+        assert_eq!(task.project, Some(String::from("project-here")));
+        assert_eq!(task.description, "some task description here and some text at the end");
+        assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
+        assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
+        assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
+        assert_eq!(task.metadata.get("tsk-rs-task-priority"), Some(&String::from("Medium")));
+        //assert_eq!(task.metadata.get("tsk-rs-task-due-time"), );
     }
 
     #[test]

@@ -1,6 +1,9 @@
-use nom::{bytes::complete::take_while1, IResult, character::{is_space, is_newline, complete::char}, sequence::{preceded, separated_pair}, branch::alt, combinator::{all_consuming, map}};
+use std::str::FromStr;
+use chrono::NaiveDateTime;
+use nom::{bytes::complete::{tag, take_while1}, IResult, character::{is_space, is_newline, complete::char}, sequence::{preceded, separated_pair}, branch::alt, combinator::{all_consuming, map}};
 use thiserror::Error;
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, Context};
+use crate::task::TaskPriority;
 
 // https://imfeld.dev/writing/parsing_with_nom
 // https://github.com/Geal/nom/blob/main/doc/choosing_a_combinator.md
@@ -13,6 +16,8 @@ enum ExpressionPrototype<'a> {
         key: &'a str,
         value: &'a str
     },
+    Priority(&'a str),
+    Duedate(&'a str),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -24,16 +29,24 @@ pub enum Expression {
         key: String,
         value: String
     },
+    Priority(TaskPriority),
+    Duedate(NaiveDateTime),
 }
 
 impl Expression {
-    fn from_prototype(prototype: &ExpressionPrototype) -> Self {
-        match prototype {
+    fn from_prototype(prototype: &ExpressionPrototype) -> Result<Self> {
+        Ok(match prototype {
             ExpressionPrototype::Description(text) => Expression::Description(String::from(*text)),
             ExpressionPrototype::Project(text) => Expression::Project(String::from(*text)),
             ExpressionPrototype::Tag(text) => Expression::Tag(String::from(*text)),
             ExpressionPrototype::Metadata { key, value } => Expression::Metadata { key: String::from(*key), value: String::from(*value) },
-        }
+            ExpressionPrototype::Priority(text) => {
+                let mut prio_string = text.to_string().to_lowercase();
+                prio_string = prio_string[0..1].to_uppercase() + &prio_string[1..];
+                Expression::Priority(TaskPriority::from_str(&prio_string).with_context(|| {"invalid priority specified in descriptor"})?)
+            },
+            ExpressionPrototype::Duedate(text) => Expression::Duedate(NaiveDateTime::from_str(text).with_context(|| {"invalid date time format for duedate in descriptor"})?),
+        })
     }
 }
 
@@ -57,23 +70,48 @@ fn metadata_pair(input: &str) -> IResult<&str, (&str, &str)> {
     separated_pair(meta_word, char('='), meta_word)(input)
 }
 
-fn tag(input: &str) -> IResult<&str, &str> {
+fn hashtag(input: &str) -> IResult<&str, &str> {
     preceded(char('#'), word)(input)
+}
+
+fn hashtag2(input: &str) -> IResult<&str, &str> {
+    preceded(tag("TAG:"), word)(input)
 }
 
 fn project(input: &str) -> IResult<&str, &str> {
     preceded(char('@'), word)(input)
 }
 
+fn project2(input: &str) -> IResult<&str, &str> {
+    preceded(tag("PRJ:"), word)(input)
+}
+
 fn metadata(input: &str) -> IResult<&str, (&str, &str)> {
     preceded(char('%'), metadata_pair)(input)
 }
 
+fn metadata2(input: &str) -> IResult<&str, (&str, &str)> {
+    preceded(tag("META:"), metadata_pair)(input)
+}
+
+fn priority(input: &str) -> IResult<&str, &str> {
+    preceded(tag("PRIO:"), word)(input)
+}
+
+fn due_date(input: &str) -> IResult<&str, &str> {
+    preceded(tag("DUE:"), word)(input)
+}
+
 fn directive(input: &str) -> IResult<&str, ExpressionPrototype> {
     alt((
-    map(tag, ExpressionPrototype::Tag),
+    map(hashtag, ExpressionPrototype::Tag),
+    map(hashtag2, ExpressionPrototype::Tag),
     map(project, ExpressionPrototype::Project),
+    map(project2, ExpressionPrototype::Project),
     map(metadata, |(key, value) | ExpressionPrototype::Metadata {key, value}),
+    map(metadata2, |(key, value) | ExpressionPrototype::Metadata {key, value}),
+    map(priority, ExpressionPrototype::Priority),
+    map(due_date, ExpressionPrototype::Duedate),
     ))(input)
 }
 
@@ -132,8 +170,12 @@ pub fn parse_task(input: String) -> Result<Vec<Expression>> {
     .map(|(_, results)| results);
 
     match parsed {
-        Ok(expressions) => {
-            Ok(expressions.iter().map(Expression::from_prototype).collect::<Vec<Expression>>())
+        Ok(prototype_expressions) => {
+            let mut ready_expressions: Vec<Expression> = vec![];
+            for expression_prototype in prototype_expressions {
+                ready_expressions.push(Expression::from_prototype(&expression_prototype).with_context(|| {"malformed expression in task descriptor"})?);
+            }
+            Ok(ready_expressions)
         },
         Err(error) => bail!(LexiconError::ParserError(error.to_string()))
     }
@@ -190,17 +232,22 @@ mod tests {
 
     #[test]
     fn tag_valid() {
-        assert_eq!(tag("#fubar").unwrap(), ("", "fubar"));
+        assert_eq!(hashtag("#fubar").unwrap(), ("", "fubar"));
+    }
+
+    #[test]
+    fn tag2_valid() {
+        assert_eq!(hashtag2("TAG:fubar").unwrap(), ("", "fubar"));
     }
 
     #[test]
     fn tag_broken() {
-        assert_eq!(tag("#fu bar").unwrap(), (" bar", "fu"));
+        assert_eq!(hashtag("#fu bar").unwrap(), (" bar", "fu"));
     }
 
     #[test]
     fn tag_broken_noprefix() {
-        assert!(tag("asfd").is_err());
+        assert!(hashtag("asfd").is_err());
     }
 
     #[test]
@@ -211,6 +258,11 @@ mod tests {
     #[test]
     fn project_valid() {
         assert_eq!(project("@fubar").unwrap(), ("", "fubar"));
+    }
+
+    #[test]
+    fn project2_valid() {
+        assert_eq!(project2("PRJ:fubar").unwrap(), ("", "fubar"));
     }
 
     #[test]
@@ -234,6 +286,26 @@ mod tests {
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Project("project-here"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("some task description here"));
     }
+
+    #[test]
+    fn parse_full_testcase2() {
+        let input = "some task description here PRJ:project-here #taghere TAG:a-second-tag META:x-meta=data %fuu=bar DUE:2022-08-16T16:56:00 PRIO:medium and some text at the end";
+
+        let (leftover, mut meta) = parse_inline(input).unwrap();
+
+        assert_eq!(leftover, "");
+        // assert the expressions from Vec
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("and some text at the end"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Priority("medium"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Duedate("2022-08-16T16:56:00"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "fuu", value: "bar" });
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "x-meta", value: "data" });
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("a-second-tag"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("taghere"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Project("project-here"));
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("some task description here"));
+    }
+
 
     #[test]
     fn parse_full_testcase_no_expressions() {
