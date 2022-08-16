@@ -42,7 +42,7 @@ fn nonws_char(c: char) -> bool {
 }
 
 fn allowed_meta_character(c: char) -> bool {
-    nonws_char(c) && c != ':'
+    nonws_char(c) && c != '='
 }
 
 fn word(input: &str) -> IResult<&str, &str> {
@@ -54,7 +54,7 @@ fn meta_word(input: &str) -> IResult<&str, &str> {
 }
 
 fn metadata_pair(input: &str) -> IResult<&str, (&str, &str)> {
-    separated_pair(meta_word, char(':'), meta_word)(input)
+    separated_pair(meta_word, char('='), meta_word)(input)
 }
 
 fn tag(input: &str) -> IResult<&str, &str> {
