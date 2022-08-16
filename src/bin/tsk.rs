@@ -72,7 +72,7 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// complete task as well
-        #[clap(value_parser)]
+        #[clap(short, long, value_parser)]
         complete: Option<bool>,
     },
     /// Edit raw datafile of the task (for advanced users)
