@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn metadata_pair_valid() {
-        assert_eq!(metadata_pair("x-meta:value").unwrap(), ("", ("x-meta", "value")));
+        assert_eq!(metadata_pair("x-meta=value").unwrap(), ("", ("x-meta", "value")));
     }
 
     #[test]
@@ -215,12 +215,12 @@ mod tests {
 
     #[test]
     fn metadata_pair_broken() {
-        assert!(metadata_pair("x-meta: value").is_err());
+        assert!(metadata_pair("x-meta = value").is_err());
     }
 
     #[test]
     fn parse_full_testcase() {
-        let input = "some task description here @project-here #taghere #a-second-tag %x-meta:data %fuu:bar additional text at the end";
+        let input = "some task description here @project-here #taghere #a-second-tag %x-meta=data %fuu=bar additional text at the end";
 
         let (leftover, mut meta) = parse_inline(input).unwrap();
 

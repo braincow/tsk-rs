@@ -358,11 +358,11 @@ mod tests {
 
     use super::*;
 
-    static FULLTESTCASEINPUT: &str = "some task description here @project-here #taghere #a-second-tag %x-meta:data %x-fuu:bar additional text at the end";
+    static FULLTESTCASEINPUT: &str = "some task description here @project-here #taghere #a-second-tag %x-meta=data %x-fuu=bar additional text at the end";
     static NOEXPRESSIONSINPUT: &str = "some task description here without expressions";
     static MULTIPROJECTINPUT: &str = "this has a @project-name, and a @second-project name";
-    static DUPLICATEMETADATAINPUT: &str = "this has %x-fuu:bar definied again with %x-fuu:bar";
-    static INVALIDMETADATAKEY: &str = "here is an %invalid:metadata key";
+    static DUPLICATEMETADATAINPUT: &str = "this has %x-fuu=bar definied again with %x-fuu=bar";
+    static INVALIDMETADATAKEY: &str = "here is an %invalid=metadata key";
     static YAMLTESTINPUT: &str = "id: bd6f75aa-8c8d-47fb-b905-d9f7b15c782d\ndescription: some task description here additional text at the end\ndone: false\nproject: project-here\ntags:\n- taghere\n- a-second-tag\nmetadata:\n  x-meta: data\n  x-fuu: bar\n  x-meta: data\n  tsk-rs-task-create-time: 2022-08-06T07:55:26.568460389+00:00\n";
 
     #[test]
