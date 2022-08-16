@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
-use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config}};
+use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config}, metadata::MetadataKeyValuePair};
 use glob::glob;
 
 #[derive(Parser)]
@@ -72,8 +72,8 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// complete task as well
-        #[clap(value_parser)]
-        complete: Option<bool>,
+        #[clap(short, long, value_parser)]
+        complete: bool,
     },
     /// Edit raw datafile of the task (for advanced users)
     Edit {
@@ -89,14 +89,20 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// set priority to one in enum
-        #[clap(short,long,value_enum)]
+        #[clap(long,value_enum)]
         priority: Option<TaskPriority>,
         /// set due date of the task
-        #[clap(short,long,value_parser)]
+        #[clap(long,value_parser)]
         due_date: Option<NaiveDateTime>,
         /// add tag to task
-        #[clap(short,long,value_parser)]
+        #[clap(long,value_parser)]
         tag: Option<Vec<String>>,
+        /// set/change tasks project
+        #[clap(long, value_parser)]
+        project: Option<String>,
+        /// add metadata to task
+        #[clap(long,value_parser)]
+        metadata: Option<Vec<MetadataKeyValuePair>>,
     },
     /// Unset task characteristics
     Unset {
@@ -104,14 +110,20 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// unset priority
-        #[clap(short,long,value_parser)]
+        #[clap(long,value_parser)]
         priority: bool,
         /// unset due date
-        #[clap(short,long,value_parser)]
+        #[clap(long,value_parser)]
         due_date: bool,
         /// remove tag from task
-        #[clap(short,long,value_parser)]
+        #[clap(long,value_parser)]
         tag: Option<Vec<String>>,
+        /// remove tasks project
+        #[clap(long,value_parser)]
+        project: bool,
+        /// remove metadata from task
+        #[clap(long,value_parser)]
+        metadata: Option<Vec<String>>,
     }
 }
 
@@ -122,11 +134,13 @@ fn main() -> Result<()> {
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
-        Some(Commands::Set { id, priority, due_date, tag }) => {
-            set_characteristic(id, priority, due_date, tag, &settings)
+        Some(Commands::Set { id, priority, due_date,
+                tag, project, metadata }) => {
+            set_characteristic(id, priority, due_date, tag, project, metadata, &settings)
         },
-        Some(Commands::Unset { id, priority, due_date, tag }) => {
-            unset_characteristic(id, priority, due_date, tag, &settings)
+        Some(Commands::Unset { id, priority, due_date,
+                tag, project, metadata }) => {
+            unset_characteristic(id, priority, due_date, tag, project, metadata, &settings)
         },
         Some(Commands::New { descriptor }) => { 
             new_task(descriptor.join(" "), &settings)
@@ -242,6 +256,12 @@ fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) 
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
 
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    if task.is_running() {
+        // task is running, so first stop it
+        stop_task(id, &false, settings)?;
+    }
+
     if !delete {
         task.mark_as_completed().with_context(|| {"while modifying task"})?;
         task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
@@ -280,21 +300,26 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.start(annotation).with_context(|| {"while starting time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+
+    // if special tag (hold) is present then release the hold by modifying tags.
+    if settings.task.release_hold_on_start {
+        unset_characteristic(id, &false, &false, &Some(vec!["hold".to_string()]),
+            &false, &None, settings)?;
+    }
+
     println!("Started time tracking for task '{}'", task.id);
     Ok(())
 }
 
-fn stop_task(id: &String, complete: &Option<bool>, settings: &Settings) -> Result<()> {
+fn stop_task(id: &String, complete: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.stop().with_context(|| {"while stopping time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Stopped time tracking for task '{}'", task.id);
     
-    if let Some(complete) = complete {
-        if *complete {
-            complete_task(id, &false, &false, settings)?;
-        }
+    if *complete {
+        complete_task(id, &false, &false, settings)?;
     }
 
     Ok(())
@@ -316,7 +341,8 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>, tags: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>,
+        tags: &Option<Vec<String>>, project: &Option<String>, metadata: &Option<Vec<MetadataKeyValuePair>>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -348,12 +374,30 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
             if !task_tags.contains(new_tag) {
                 task_tags.push(new_tag.to_string());
                 tags_modified = true;
+                println!("Tag '{}' added", new_tag);
             }
         }
 
         if tags_modified {
             task.tags = Some(task_tags);
             modified = true;
+        }
+    }
+
+    if project.is_some() {
+        task.project = project.clone();
+        modified = true;
+    }
+
+    if let Some(metadata) = metadata {
+        for new_metadata in metadata {
+            let old = task.metadata.insert(new_metadata.key.clone(), new_metadata.value.clone());
+            modified = true;
+            if old.is_some() {
+                println!("Metadata '{}' = '{}' updated", new_metadata.key, new_metadata.value);
+            } else {
+                println!("Metadata '{}' = '{}' added", new_metadata.key, new_metadata.value);
+            }
         }
     }
 
@@ -365,7 +409,8 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
     Ok(())
 }
 
-fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+fn unset_characteristic(id: &String, priority: &bool, due_date: &bool,
+        tags: &Option<Vec<String>>, project: &bool, metadata: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
@@ -398,6 +443,7 @@ fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Op
         for remove_tag in tags {
             if let Some(index) = task_tags.iter().position(|r| r == remove_tag) {
                 task_tags.swap_remove(index);
+                println!("Tag '{}' removed", remove_tag);
                 tags_modified = true;
             }
         }
@@ -405,6 +451,21 @@ fn unset_characteristic(id: &String, priority: &bool, due_date: &bool, tags: &Op
         if tags_modified {
             task.tags = Some(task_tags);
             modified = true;
+        }
+    }
+
+    if *project {
+        task.project = None;
+        modified = true;
+    }
+
+    if let Some(metadata) = metadata {
+        for remove_metadata in metadata {
+            let old = task.metadata.remove(remove_metadata);
+            if let Some(old) = old {
+                println!("Metadata '{}' = '{}' removed", remove_metadata, old);
+                modified = true;
+            }
         }
     }
 

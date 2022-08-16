@@ -3,7 +3,7 @@ use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
 use question::{Question, Answer};
-use tsk_rs::{settings::{Settings, show_config}, task::{Task, TaskError}, note::Note};
+use tsk_rs::{settings::{Settings, show_config}, task::{Task, TaskError}, note::Note, metadata::MetadataKeyValuePair};
 use glob::glob;
 use bat::{Input, PrettyPrinter};
 
@@ -62,6 +62,23 @@ enum Commands {
     },
     /// display the current configuration of the tsk-rs suite
     Config,
+    /// Set note characteristics
+    Set {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+        #[clap(long,value_parser)]
+        metadata: Option<Vec<MetadataKeyValuePair>>,
+    },
+    /// Unset note characteristics
+    Unset {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
+        /// remove metadata from note
+        #[clap(long,value_parser)]
+        metadata: Option<Vec<String>>,
+    }
 }
 
 fn main() -> Result<()> {
@@ -86,6 +103,13 @@ fn main() -> Result<()> {
         Some(Commands::Config) => {
             show_config(&settings)
         },
+        Some(Commands::Set { id, metadata }) => {
+            set_characteristic(id, metadata, &settings)
+        },
+        Some(Commands::Unset { id, metadata }) => {
+            unset_characteristic(id, metadata, &settings)
+        },
+
         None => { list_note(&None, &false, &false, &settings) }
     }
 }
@@ -239,5 +263,57 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
 
     Ok(())
 }
+
+fn set_characteristic(id: &String, metadata: &Option<Vec<MetadataKeyValuePair>>, settings: &Settings) -> Result<()> {
+    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
+
+    let mut modified = false;
+
+    if let Some(metadata) = metadata {
+        for new_metadata in metadata {
+            let old = note.metadata.insert(new_metadata.key.clone(), new_metadata.value.clone());
+            modified = true;
+            if old.is_some() {
+                println!("Metadata '{}' = '{}' updated", new_metadata.key, new_metadata.value);
+            } else {
+                println!("Metadata '{}' = '{}' added", new_metadata.key, new_metadata.value);
+            }
+        }
+    }
+
+    if modified {
+        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving note yaml file"})?;
+        println!("Modifications saved for note '{}'", note.task_id);
+    }
+
+    Ok(())
+}
+
+fn unset_characteristic(id: &String, metadata: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let mut note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
+
+    let mut modified = false;
+
+    if let Some(metadata) = metadata {
+        for remove_metadata in metadata {
+            let old = note.metadata.remove(remove_metadata);
+            if let Some(old) = old {
+                println!("Metadata '{}' = '{}' removed", remove_metadata, old);
+                modified = true;
+            }
+        }
+    }
+
+    if modified {
+        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving note yaml file"})?;
+        println!("Modifications saved for note '{}'", note.task_id);
+    }
+
+    Ok(())
+}
+
+
 
 // eof

@@ -7,6 +7,18 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
+pub struct TaskSettings {
+    pub release_hold_on_start: bool,
+}
+
+impl Default for TaskSettings {
+    fn default() -> Self {
+        Self { release_hold_on_start: true, }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct OutputSettings {
     pub colors: bool,
     pub grid: bool,
@@ -54,6 +66,7 @@ impl Default for DataSettings {
 pub struct Settings {
     pub data: DataSettings,
     pub note: NoteSettings,
+    pub task: TaskSettings,
     pub output: OutputSettings,
 }
 
