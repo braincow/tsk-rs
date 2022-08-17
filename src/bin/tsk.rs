@@ -50,9 +50,12 @@ enum Commands {
         /// task id
         #[clap(value_parser)]
         id: String,
-        /// delete task file
-        #[clap(short, long, value_parser)]
-        delete: bool,
+    },
+    /// Delete task file permanently
+    Delete {
+        /// task id
+        #[clap(value_parser)]
+        id: String,
         /// delete file silently
         #[clap(short, long, value_parser)]
         force: bool,
@@ -71,9 +74,9 @@ enum Commands {
         /// task id
         #[clap(value_parser)]
         id: String,
-        /// complete task as well
+        /// mark task as done
         #[clap(short, long, value_parser)]
-        complete: bool,
+        done: bool,
     },
     /// Edit raw datafile of the task (for advanced users)
     Edit {
@@ -154,17 +157,20 @@ fn main() -> Result<()> {
         Some(Commands::List { id, include_done }) => {
             list_tasks(id, include_done, &settings)
         },
-        Some(Commands::Done { id, delete, force}) => {
-            complete_task(id, delete, force, &settings)
+        Some(Commands::Done { id }) => {
+            complete_task(id, &settings)
         },
+        Some(Commands::Delete { id, force }) => {
+            delete_task(id, force, &settings)
+        }
         Some(Commands::Edit { id }) => {
             edit_task(id, &settings)
         },
         Some(Commands::Start { id, annotation }) => {
             start_task(id, annotation, &settings)
         },
-        Some(Commands::Stop { id, complete }) => {
-            stop_task(id, complete, &settings)
+        Some(Commands::Stop { id, done }) => {
+            stop_task(id, done, &settings)
         },
         None => {list_tasks(&None, &false, &settings)}
     }
@@ -252,9 +258,8 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     Ok(())
 }
 
-fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) -> Result<()> {
+fn complete_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
-
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
     if task.is_running() {
@@ -262,24 +267,32 @@ fn complete_task(id: &String, delete: &bool, force: &bool, settings: &Settings) 
         stop_task(id, &false, settings)?;
     }
 
-    if !delete {
-        task.mark_as_completed().with_context(|| {"while modifying task"})?;
-        task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
-        println!("Task '{}' now marked as done.", task.id);
-    } else {
-        let answer = if !force {
-            Question::new("Really delete this task?")
-            .default(Answer::NO)
-            .show_defaults()
-            .confirm()
-        } else {
-            Answer::YES
-        };
+    // remove special tags when task is marked completed
+    unset_characteristic(id, &false, &false, &Some(vec!["next".to_string(), "hold".to_string()]), &false, &None, settings)?;
 
-        if answer == Answer::YES {
-            remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
-            println!("Task '{}' now deleted permanently.", task.id);
-        }
+    task.mark_as_completed().with_context(|| {"while modifying task"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
+    println!("Task '{}' now marked as done.", task.id);
+
+    Ok(())
+}
+
+fn delete_task(id: &String, force: &bool, settings: &Settings) -> Result<()> {
+    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    let answer = if !force {
+        Question::new("Really delete this task?")
+        .default(Answer::NO)
+        .show_defaults()
+        .confirm()
+    } else {
+        Answer::YES
+    };
+
+    if answer == Answer::YES {
+        remove_file(task_pathbuf).with_context(|| {"while deleting task yaml file"})?;
+        println!("Task '{}' now deleted permanently.", task.id);
     }
 
     Ok(())
@@ -311,15 +324,15 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
     Ok(())
 }
 
-fn stop_task(id: &String, complete: &bool, settings: &Settings) -> Result<()> {
+fn stop_task(id: &String, done: &bool, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
     task.stop().with_context(|| {"while stopping time tracking"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
     println!("Stopped time tracking for task '{}'", task.id);
     
-    if *complete {
-        complete_task(id, &false, &false, settings)?;
+    if *done {
+        complete_task(id, settings)?;
     }
 
     Ok(())
