@@ -229,7 +229,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         } else {
             found_task.description.clone()
         };
-        let show_score: i32 = if found_task.done {
+        let show_score: i32 = if !found_task.done {
             found_task.score()?.try_into().with_context(|| {"task score is unusually large and type conversion fails"})?
         } else {
             -1
