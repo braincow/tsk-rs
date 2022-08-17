@@ -229,11 +229,16 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         } else {
             found_task.description.clone()
         };
+        let show_score: i32 = if found_task.done {
+            found_task.score()?.try_into().with_context(|| {"task score is unusually large and type conversion fails"})?
+        } else {
+            -1
+        };
         task_cells.push(vec![
             found_task.id.cell().foreground_color(cell_color),
             description.cell().foreground_color(cell_color),
             found_task.project.clone().unwrap_or_else(|| {"".to_string()}).cell().foreground_color(cell_color),
-            found_task.score()?.cell().foreground_color(cell_color),
+            show_score.cell().foreground_color(cell_color),
             runtime_str.cell().foreground_color(cell_color),
             ]);
     }
