@@ -191,6 +191,8 @@ fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
     if answer == Answer::YES {
         remove_file(note_pathbuf).with_context(|| {"while removing note file"})?;
         println!("Note for '{}' now deleted permanently.", note.task_id);    
+    } else {
+        println!("Cancelled: Note for '{}' not deleted.", note.task_id);    
     }
 
     Ok(())
@@ -204,6 +206,7 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
         bail!(TaskError::TaskAlreadyCompleted);
     }
 
+    let mut modified = false;
     let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut note: Note;
     if !note_pathbuf.is_file() {
@@ -215,7 +218,7 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
 
     if !raw {
         // by default we edit only the Markdown notation inside the file
-        let mut md: String = note.markdown.unwrap_or_default();
+        let mut md: String = note.markdown.clone().unwrap_or_default();
         if md.is_empty() && settings.note.add_description_on_new {
             md = format!("# {}\n\n", task.description);
         }
@@ -223,14 +226,28 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             let local_timestamp = chrono::offset::Local::now();
             md = format!("{}## {}\n\n", md, local_timestamp);
         }
-        md = edit::edit_with_builder(md, edit::Builder::new().suffix(".md")).with_context(|| {"while starting an external editor"})?;
-        note.markdown = Some(md);
+
+        let new_md = edit::edit_with_builder(md.clone(), edit::Builder::new().suffix(".md")).with_context(|| {"while starting an external editor"})?;
+
+        if new_md != md {
+            note.markdown = Some(new_md);
+            modified = true;
+        }
     } else {
         // modify the raw YAML notation of the task file
         let new_yaml = edit::edit_with_builder(note.to_yaml_string()?, edit::Builder::new().suffix(".yaml")).with_context(|| {"while starting an external editor"})?;
-        note = Note::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified note yaml"})?;
+        if new_yaml != note.to_yaml_string()? {
+            note = Note::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified note yaml"})?;
+            modified = true;
+        }
     }
-    note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified note yaml file"})?;
+
+    if modified {
+        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified note yaml file"})?;
+        println!("Note for '{}' was updated.", note.task_id);
+    } else {
+        println!("No updates made to note for '{}'.", note.task_id);
+    }
 
     Ok(())
 }
