@@ -337,10 +337,10 @@ impl Task {
             let diff = duedate - timestamp;
 
             match diff.num_days() {
-                n if n < 0 => score += 25,
-                0..=2 => score += 10,
-                3..=5 => score += 5,
-                _ => score += 2,
+                n if n < 0 => score += 10,
+                0..=2 => score += 7,
+                3..=5 => score += 3,
+                _ => score += 1,
             };
         }
 
