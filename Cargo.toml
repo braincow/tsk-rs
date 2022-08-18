@@ -29,6 +29,3 @@ strum = { version = "0.24", features = ["derive"] }
 thiserror = "1.0"
 toml = "0.5"
 uuid = { version = "1.1", features = ["v4", "serde"] }
-
-[patch.crates-io]
-simple-file-rotation = { git = "https://github.com/braincow/simple-file-rotation.git", branch = "configurable_file_extension" }
