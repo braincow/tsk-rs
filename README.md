@@ -4,13 +4,13 @@ Task managemed done "right".
 
 ## tsk
 
-An utility to create and manage known tasks or their states.
+An utility to create and manage known tasks or their states. Also can be used to track time spent on any given task with `start` and `stop` subcommands.
 
 ### Task descriptor language
 
 Simply defines properties and metadata of the task:
 
-`This is a prj:Project task that has to be done. due:2022-08-01T16:00:00 priority:low meta:fuu=bar`
+`This is a prj:Project task that has to be done. due:2022-08-01T16:00:00 prio:low meta:x-fuu=bar tag:some tag:tags tag:can tag:be tag:added`
 
 And this descriptor can be fed to the `tsk new` command.
 
