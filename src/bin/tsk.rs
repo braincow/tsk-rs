@@ -22,12 +22,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    // https://github.com/clap-rs/clap/issues/1236
     /// Adds a new task from task description string
-    #[clap(allow_missing_positional = true)]
+    #[clap(trailing_var_arg = true)]
     New {
         /// Task description string
-        #[clap(raw = true, value_parser)]
+        #[clap(multiple = true, value_parser)]
         descriptor: Vec<String>,
     },
     /// Show task definition and data
