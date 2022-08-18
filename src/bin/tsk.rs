@@ -193,10 +193,14 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
 
     let mut found_tasks: Vec<Task> = vec![];
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
+            continue;
+        }
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
         if !task.done || *include_done {
             found_tasks.push(task);
-        }
+        }   
     }
     found_tasks.sort_by_key(|k| k.score().unwrap());
     found_tasks.reverse();

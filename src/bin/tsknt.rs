@@ -125,6 +125,11 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
         note_pathbuf = note_pathbuf.join("*.yaml");
     }
     for note_filename in glob(note_pathbuf.to_str().unwrap()).with_context(|| {"while traversing note data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if note_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
+            continue;
+        }
+
         let note = Note::load_yaml_file_from(&note_filename?).with_context(|| {"while loading note from disk"})?;
 
         let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", note.task_id)));
