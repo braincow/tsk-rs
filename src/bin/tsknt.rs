@@ -230,7 +230,7 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
         }
         if settings.note.add_timestamp_on_edit {
             let local_timestamp = chrono::offset::Local::now();
-            md = format!("{}## {}\n\n", md, local_timestamp);
+            md = format!("{}\n## {}\n\n", md, local_timestamp);
         }
 
         let new_md = edit::edit_with_builder(md.clone(), edit::Builder::new().suffix(".md")).with_context(|| {"while starting an external editor"})?;
