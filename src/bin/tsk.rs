@@ -35,9 +35,9 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
     },
-    /// Show and/or list tasks
+    /// List task(s)
     List {
-        /// Existing task id or a part of one
+        /// Existing task id or a part of one. Empty will list all.
         #[clap(value_parser)]
         id: Option<String>,
         /// Include also completed tasks
@@ -102,7 +102,7 @@ enum Commands {
         /// Set/change project of the task
         #[clap(long, value_parser)]
         project: Option<String>,
-        /// Add/change metadata of the task
+        /// Add/change metadata of the task: x-key=value
         #[clap(long,value_parser)]
         metadata: Option<Vec<MetadataKeyValuePair>>,
     },
@@ -123,7 +123,7 @@ enum Commands {
         /// Remove project from task
         #[clap(long,value_parser)]
         project: bool,
-        /// Remove metadata from task
+        /// Remove metadata(s) from task
         #[clap(long,value_parser)]
         metadata: Option<Vec<String>>,
     }

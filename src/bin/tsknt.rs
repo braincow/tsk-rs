@@ -23,59 +23,60 @@ enum Commands {
     /// Create or edit a note for an task
     #[clap(allow_missing_positional = true)]
     Edit {
-        /// task id
+        /// Existing task/note id
         #[clap(value_parser)]
         id: String,
-        /// mode selection
+        /// Edit raw YAML definition of the note (for advanced users)
         #[clap(short, long, value_parser)]
         raw: bool,
     },
     /// Read note or entire definition
     Show {
-        /// task id
+        /// Existing task/note id
         #[clap(value_parser)]
         id: String,
-        /// mode selection
+        /// Show raw YAML notation of the note instead of Markdown
         #[clap(short, long, value_parser)]
         raw: bool,
     },
-    /// delete a note file
+    /// Ddelete a note
     Delete {
-        /// task id
+        /// Existing task/note id
         #[clap(value_parser)]
         id: String,
-        /// delete file silently
+        /// Delete file silently
         #[clap(short, long, value_parser)]
         force: bool,
     },
-    /// show note(s)
+    /// List note(s)
     List {
-        /// task id
+        /// Existing task/note id or a part of one. Empty will list all.
         #[clap(value_parser)]
         id: Option<String>,
-        /// show orphaned notes (task file has been deleted)
+        /// List orphaned notes (Task file has been deleted)
         #[clap(short, long, value_parser)]
         orphaned: bool,
-        /// show notes for completed tasks
+        /// List notes for completed tasks
         #[clap(short, long, value_parser)]
         completed: bool,
     },
-    /// display the current configuration of the tsk-rs suite
+    /// Display the current configuration of the tsk-rs suite
     Config,
     /// Set note characteristics
     Set {
-        /// task id
+        /// Existing task/note id
         #[clap(value_parser)]
         id: String,
+        /// Add metadata from note: x-key=value
         #[clap(long,value_parser)]
         metadata: Option<Vec<MetadataKeyValuePair>>,
     },
     /// Unset note characteristics
     Unset {
-        /// task id
+        /// Existing task/note id
         #[clap(value_parser)]
         id: String,
-        /// remove metadata from note
+        /// Remove metadata(s) from note: x-key
         #[clap(long,value_parser)]
         metadata: Option<Vec<String>>,
     }
