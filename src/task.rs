@@ -152,7 +152,7 @@ impl Task {
     pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf, rotate: &usize ) -> Result<()> {
         // rotate existing file with same name if present
         if task_pathbuf.is_file() && rotate > &0 {
-            FileRotation::new(&task_pathbuf).max_old_files(*rotate).rotate()
+            FileRotation::new(&task_pathbuf).max_old_files(*rotate).file_extension("yaml".to_string()).rotate()
                 .with_context(|| {"while rotating task data file backups"})?;
         }
         // save file by locking

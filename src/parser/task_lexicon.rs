@@ -75,7 +75,7 @@ fn hashtag(input: &str) -> IResult<&str, &str> {
 }
 
 fn hashtag2(input: &str) -> IResult<&str, &str> {
-    preceded(tag("TAG:"), word)(input)
+    preceded(alt((tag("tag:"), tag("TAG:"))), word)(input)
 }
 
 fn project(input: &str) -> IResult<&str, &str> {
@@ -83,7 +83,7 @@ fn project(input: &str) -> IResult<&str, &str> {
 }
 
 fn project2(input: &str) -> IResult<&str, &str> {
-    preceded(tag("PRJ:"), word)(input)
+    preceded(alt((tag("prj:"), tag("proj:"), tag("PRJ:"), tag("PROJ:"))), word)(input)
 }
 
 fn metadata(input: &str) -> IResult<&str, (&str, &str)> {
@@ -91,15 +91,15 @@ fn metadata(input: &str) -> IResult<&str, (&str, &str)> {
 }
 
 fn metadata2(input: &str) -> IResult<&str, (&str, &str)> {
-    preceded(tag("META:"), metadata_pair)(input)
+    preceded(alt((tag("META:"), tag("meta:"))), metadata_pair)(input)
 }
 
 fn priority(input: &str) -> IResult<&str, &str> {
-    preceded(tag("PRIO:"), word)(input)
+    preceded(alt((tag("prio:"), tag("PRIO:"))), word)(input)
 }
 
 fn due_date(input: &str) -> IResult<&str, &str> {
-    preceded(tag("DUE:"), word)(input)
+    preceded(alt((tag("due:"), tag("DUE:"), tag("duedate:"), tag("DUEDATE:"))), word)(input)
 }
 
 fn directive(input: &str) -> IResult<&str, ExpressionPrototype> {
