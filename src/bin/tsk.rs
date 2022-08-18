@@ -20,111 +20,111 @@ struct Cli {
     command: Option<Commands>,
 }
 
-// https://github.com/clap-rs/clap/issues/1236
 #[derive(Subcommand)]
 enum Commands {
+    // https://github.com/clap-rs/clap/issues/1236
     /// Adds a new task from task description string
     #[clap(allow_missing_positional = true)]
     New {
-        /// ask description string
+        /// Task description string
         #[clap(raw = true, value_parser)]
         descriptor: Vec<String>,
     },
     /// Show task definition and data
     Show {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
     },
     /// Show and/or list tasks
     List {
-        /// task id or part of one
+        /// Existing task id or a part of one
         #[clap(value_parser)]
         id: Option<String>,
-        /// show also completed tasks
+        /// Include also completed tasks
         #[clap(short, long, value_parser)]
         include_done: bool
     },
-    /// Mark task as done
+    /// Mark task as done and stop time tracking if running
     Done {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
     },
     /// Delete task file permanently
     Delete {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
-        /// delete file silently
+        /// Delete file silently
         #[clap(short, long, value_parser)]
         force: bool,
     },
     /// Start tracking a task
     Start {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
-        /// optional annotation for the job at hand
-        #[clap(value_parser)]
+        /// Optional annotation for the job at hand
+        #[clap(raw = true, value_parser)]
         annotation: Option<String>,
     },
     /// Stop from tracking a task
     Stop {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
-        /// mark task as done
+        /// Also, mark task as done immediately
         #[clap(short, long, value_parser)]
         done: bool,
     },
     /// Edit raw datafile of the task (for advanced users)
     Edit {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
     },
-    /// display the current configuration of the tsk-rs suite
+    /// Display the current configuration of the tsk-rs suite
     Config,
     /// Set task characteristics like priority, due date and etc
     Set {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
-        /// set priority to one in enum
+        /// Set/change priority of the task
         #[clap(long,value_enum)]
         priority: Option<TaskPriority>,
-        /// set due date of the task
+        /// Set/change due date of the task (YYYY-MM-DDTHH:MM:SS)
         #[clap(long,value_parser)]
         due_date: Option<NaiveDateTime>,
-        /// add tag to task
+        /// Add tag to task
         #[clap(long,value_parser)]
         tag: Option<Vec<String>>,
-        /// set/change tasks project
+        /// Set/change project of the task
         #[clap(long, value_parser)]
         project: Option<String>,
-        /// add metadata to task
+        /// Add/change metadata of the task
         #[clap(long,value_parser)]
         metadata: Option<Vec<MetadataKeyValuePair>>,
     },
     /// Unset task characteristics
     Unset {
-        /// task id
+        /// Existing task id
         #[clap(value_parser)]
         id: String,
-        /// unset priority
+        /// Unset priority
         #[clap(long,value_parser)]
         priority: bool,
-        /// unset due date
+        /// Unset due date
         #[clap(long,value_parser)]
         due_date: bool,
-        /// remove tag from task
+        /// Remove tag(s) from task.
         #[clap(long,value_parser)]
         tag: Option<Vec<String>>,
-        /// remove tasks project
+        /// Remove project from task
         #[clap(long,value_parser)]
         project: bool,
-        /// remove metadata from task
+        /// Remove metadata from task
         #[clap(long,value_parser)]
         metadata: Option<Vec<String>>,
     }
