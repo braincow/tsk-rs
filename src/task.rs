@@ -46,6 +46,15 @@ pub struct TimeTrack {
     pub annotation: Option<String>,
 }
 
+impl TimeTrack {
+    pub fn duration(&self) -> Option<Duration> {
+        if let Some(end_time) = self.end_time {
+            return Some(end_time - self.start_time)
+        }
+        None
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: Uuid,
@@ -368,6 +377,18 @@ impl Task {
         }
 
         Ok(score)
+    }
+
+    pub fn create_date(&self) -> Result<DateTime<Local>> {
+        DateTime::from_str(self.metadata.get("tsk-rs-task-create-time").unwrap()).with_context(|| {"while parsing create date metadata"})
+    }
+
+    pub fn done_date(&self) -> Result<Option<DateTime<Local>>> {
+        if !self.done {
+            return Ok(None);
+        }
+        let done_date = DateTime::from_str(self.metadata.get("tsk-rs-task-done-time").unwrap()).with_context(|| {"while parsing done date metadata"})?;
+        Ok(Some(done_date))
     }
 
 }
