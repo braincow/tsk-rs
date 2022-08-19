@@ -310,8 +310,8 @@ impl Task {
         }
     
         if self.is_running() {
-            // if task is running it gains 5 points
-            score += 5;
+            // if task is running it gains 15 points
+            score += 15;
         }
     
         if self.timetracker.is_some() {
