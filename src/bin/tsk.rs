@@ -179,6 +179,14 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     let mut task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+
+    // once the task file has been created check for special tags that should take immediate action
+    if let Some(tags) = task.tags.clone() {
+        if tags.contains(&"start".to_string()) {
+            start_task(&task.id.to_string(), &Some("started on creation".to_string()), settings)?;
+        }
+    }
+
     println!("Created a task '{}'", task.id);
     Ok(())
 }
