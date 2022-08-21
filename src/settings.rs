@@ -71,7 +71,7 @@ impl Default for DataSettings {
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     namespace: String,
     pub data: DataSettings,
     pub note: NoteSettings,
