@@ -16,11 +16,21 @@ pub enum SettingsError {
 #[serde(default)]
 pub struct TaskSettings {
     pub release_hold_on_start: bool,
+    pub enable_start_special_tag: bool,
+    pub show_special_tags_on_list: bool,
+    pub stop_tracking_when_done: bool,
+    pub remove_special_tags_on_done: bool,
 }
 
 impl Default for TaskSettings {
     fn default() -> Self {
-        Self { release_hold_on_start: true, }
+        Self {
+            release_hold_on_start: true,
+            enable_start_special_tag: true,
+            show_special_tags_on_list: true,
+            stop_tracking_when_done: true,
+            remove_special_tags_on_done: true,
+        }
     }
 }
 

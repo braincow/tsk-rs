@@ -186,7 +186,7 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
 
     // once the task file has been created check for special tags that should take immediate action
     if let Some(tags) = task.tags.clone() {
-        if tags.contains(&"start".to_string()) {
+        if tags.contains(&"start".to_string()) && settings.task.enable_start_special_tag {
             start_task(&task.id.to_string(), &Some("started on creation".to_string()), settings)?;
         }
     }
@@ -225,23 +225,28 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         } else {
             "[stopped]".to_string()
         };
-        let cell_color = match found_task.score()? {
-            7..=12 => Some(Color::Green),
-            13..=18 => Some(Color::Yellow),
-            n if n >= 19 => Some(Color::Red),
-            _ => None
-        };
+        let mut cell_color: Option<Color> = None;
+        if settings.output.colors {
+            cell_color = match found_task.score()? {
+                7..=12 => Some(Color::Green),
+                13..=18 => Some(Color::Yellow),
+                n if n >= 19 => Some(Color::Red),
+                _ => None
+            };    
+        }
         let description = if let Some(tags) = found_task.tags.clone() {
             let mut desc = found_task.description.clone();
-            // make special tags visible
-            if tags.contains(&"next".to_string()) {
-                desc = format!("{} #next", desc);
-            }
-            if tags.contains(&"hold".to_string()) {
-                desc = format!("{} #hold", desc);
-            }
-            if tags.contains(&"start".to_string()) {
-                desc = format!("{} #start", desc);
+            if settings.task.show_special_tags_on_list {
+                // make special tags visible
+                if tags.contains(&"next".to_string()) {
+                    desc = format!("{} #next", desc);
+                }
+                if tags.contains(&"hold".to_string()) {
+                    desc = format!("{} #hold", desc);
+                }
+                if tags.contains(&"start".to_string()) {
+                    desc = format!("{} #start", desc);
+                }
             }
             desc
         } else {
@@ -280,13 +285,17 @@ fn complete_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
-    if task.is_running() {
+    if task.is_running() && settings.task.stop_tracking_when_done {
         // task is running, so first stop it
         stop_task(id, &false, settings)?;
     }
 
     // remove special tags when task is marked completed
-    unset_characteristic(id, &false, &false, &Some(vec!["next".to_string(), "hold".to_string()]), &false, &None, settings)?;
+    if settings.task.remove_special_tags_on_done {
+        unset_characteristic(id, &false, &false, 
+            &Some(vec!["start".to_string(), "next".to_string(), "hold".to_string()]),
+            &false, &None, settings)?;    
+    }
 
     task.mark_as_completed().with_context(|| {"while modifying task"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
