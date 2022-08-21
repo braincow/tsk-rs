@@ -240,6 +240,9 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             if tags.contains(&"hold".to_string()) {
                 desc = format!("{} #hold", desc);
             }
+            if tags.contains(&"start".to_string()) {
+                desc = format!("{} #start", desc);
+            }
             desc
         } else {
             found_task.description.clone()
