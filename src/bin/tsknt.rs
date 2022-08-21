@@ -274,6 +274,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
                 .input(Input::from_bytes(md.as_bytes()))
                 .colored_output(settings.output.colors)
                 .grid(settings.output.grid)
+                .line_numbers(settings.output.line_numbers)
                 .print()
                 .with_context(|| {"while trying to prettyprint markdown"})?;
         }
@@ -284,6 +285,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             .input(Input::from_bytes(note_yaml.as_bytes()))
             .colored_output(settings.output.colors)
             .grid(settings.output.grid)
+            .line_numbers(settings.output.line_numbers)
             .print()
             .with_context(|| {"while trying to prettyprint yaml"})?;
     }

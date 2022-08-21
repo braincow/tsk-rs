@@ -20,5 +20,6 @@ db_path = "test_data"   # if uncommented defaults to users data directory in the
 #[output]
 #colors = true                          # colorize task and note outputs
 #grid = true                            # draw a box around output
+#line_numbers = true                    # show line numbers in output
 
 # eof

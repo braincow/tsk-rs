@@ -39,11 +39,12 @@ impl Default for TaskSettings {
 pub struct OutputSettings {
     pub colors: bool,
     pub grid: bool,
+    pub line_numbers: bool,
 }
 
 impl Default for OutputSettings {
     fn default() -> Self {
-        Self { colors: true, grid: true }
+        Self { colors: true, grid: true, line_numbers: true }
     }
 }
 
@@ -147,6 +148,7 @@ pub fn show_config(settings: &Settings) -> Result<()> {
         .input(Input::from_bytes(settings_toml.as_bytes()))
         .colored_output(settings.output.colors)
         .grid(settings.output.grid)
+        .line_numbers(settings.output.line_numbers)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 

@@ -375,6 +375,7 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
         .input(Input::from_bytes(task_yaml.as_bytes()))
         .colored_output(settings.output.colors)
         .grid(settings.output.grid)
+        .line_numbers(settings.output.line_numbers)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 
