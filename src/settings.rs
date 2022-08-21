@@ -71,7 +71,7 @@ impl Default for DataSettings {
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     namespace: String,
     pub data: DataSettings,
     pub note: NoteSettings,
@@ -87,17 +87,17 @@ impl Display for Settings {
 
 impl Settings {
     pub fn new(namespace: String, config_file: &str) -> Result<Self> {
-        let mut config = Config::builder();
-        if PathBuf::from(config_file).is_file() {
-            config = config.add_source(config::File::with_name(config_file));
-        }
-        config = config.add_source(config::Environment::with_prefix("TSK"));
-        let ready_config = config.build().with_context(|| {"while reading configuration"})?;
-        let mut settings: Settings = ready_config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+        let mut settings: Settings = Config::builder()
+            .add_source(config::File::with_name(config_file).required(false))
+            .add_source(config::Environment::with_prefix("TSK").try_parsing(true).separator("_"))
+            .build().with_context(|| {"while reading configuration"})?
+            .try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
 
-        if !namespace.is_empty() {
+        if !namespace.is_empty() && settings.namespace.is_empty() {
+            // namespace can come from env as well so only set it if it was not read from env by config crate
             settings.namespace = namespace;
-        } else {
+        }
+        if settings.namespace.is_empty() {
             bail!(SettingsError::EmptyNamespaceNotAllowed);
         }
 
