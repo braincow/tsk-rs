@@ -14,6 +14,10 @@ struct Cli {
     #[clap(short, long, value_parser, value_name = "FILE", default_value = "tsk.toml")]
     config: PathBuf,
 
+    /// Sets the namespace of tasks
+    #[clap(short, long, value_parser, value_name = "NAMESPACE", default_value = "default")]
+    namespace: String,
+
     #[clap(subcommand)]
     command: Option<Commands>,
 }
@@ -85,7 +89,7 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let settings = Settings::new(cli.config.to_str().unwrap())
+    let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {

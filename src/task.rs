@@ -19,6 +19,8 @@ pub enum TaskPriority {
 
 #[derive(Error, Debug, PartialEq)]
 pub enum TaskError {
+    #[error("only one namespace identifier allowed")]
+    MultipleNamespacesNotAllowed,
     #[error("only one project identifier allowed")]
     MultipleProjectsNotAllowed,
     #[error("only one priority identifier allowed")]
@@ -46,9 +48,15 @@ pub struct TimeTrack {
     pub annotation: Option<String>,
 }
 
+fn default_namespace() -> String {
+    "default".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: Uuid,
+    #[serde(default = "default_namespace")]
+    pub namespace: String,
     pub description: String,
     pub done: bool,
     pub project: Option<String>,
@@ -194,7 +202,7 @@ impl Task {
         let timestamp = chrono::offset::Local::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata, timetracker: None }
+        Self { id: Uuid::new_v4(), namespace: "default".to_string(), description, done: false, project: None, tags: None, metadata, timetracker: None }
     }
 
     pub fn to_yaml_string(&self) -> Result<String> {       
@@ -216,9 +224,16 @@ impl Task {
         let mut tags: Vec<String> = vec![];
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         let mut project: String = String::new();
+        let mut namespace: String = String::new();
 
         for expr in expressions {
             match expr {
+                Expression::Namespace(namespc) => {
+                    if !namespace.is_empty() {
+                        bail!(TaskError::MultipleNamespacesNotAllowed);
+                    }
+                    namespace = namespc;
+                }
                 Expression::Description(desc) => {
                     // always extend the existing desctiption text with additional
                     //  text that is found later on
@@ -281,11 +296,16 @@ impl Task {
             ret_project = Some(project);
         }
 
+        if namespace.is_empty() {
+            namespace = "default".to_string();
+        }
+
         let timestamp = chrono::offset::Local::now();
         metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
 
         Ok(Self {
             id: Uuid::new_v4(),
+            namespace,
             description,
             done: false,
             tags: ret_tags,
@@ -412,7 +432,7 @@ mod tests {
 
         let yaml_string = task.to_yaml_string().unwrap();
         assert_eq!(yaml_string,
-            format!("id: {}\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\ntimetracker: null\n",
+            format!("id: {}\nnamespace: default\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\ntimetracker: null\n",
                 task.id,
                 task.description,
                 task.project.unwrap(),

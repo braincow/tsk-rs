@@ -18,6 +18,7 @@ enum ExpressionPrototype<'a> {
     },
     Priority(&'a str),
     Duedate(&'a str),
+    Namespace(&'a str),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,11 +32,13 @@ pub enum Expression {
     },
     Priority(TaskPriority),
     Duedate(NaiveDateTime),
+    Namespace(String),
 }
 
 impl Expression {
     fn from_prototype(prototype: &ExpressionPrototype) -> Result<Self> {
         Ok(match prototype {
+            ExpressionPrototype::Namespace(text) => Expression::Namespace(String::from(*text)),
             ExpressionPrototype::Description(text) => Expression::Description(String::from(*text)),
             ExpressionPrototype::Project(text) => Expression::Project(String::from(*text)),
             ExpressionPrototype::Tag(text) => Expression::Tag(String::from(*text)),
@@ -78,6 +81,10 @@ fn hashtag2(input: &str) -> IResult<&str, &str> {
     preceded(alt((tag("tag:"), tag("TAG:"))), word)(input)
 }
 
+fn namespace(input: &str) -> IResult<&str, &str> {
+    preceded(alt((tag("namespace:"), tag("NAMESPACE:"))), word)(input)
+}
+
 fn project(input: &str) -> IResult<&str, &str> {
     preceded(char('@'), word)(input)
 }
@@ -104,6 +111,7 @@ fn due_date(input: &str) -> IResult<&str, &str> {
 
 fn directive(input: &str) -> IResult<&str, ExpressionPrototype> {
     alt((
+    map(namespace, ExpressionPrototype::Namespace),
     map(hashtag, ExpressionPrototype::Tag),
     map(hashtag2, ExpressionPrototype::Tag),
     map(project, ExpressionPrototype::Project),
@@ -272,12 +280,13 @@ mod tests {
 
     #[test]
     fn parse_full_testcase() {
-        let input = "some task description here @project-here #taghere #a-second-tag %x-meta=data %fuu=bar additional text at the end";
+        let input = "some task description here @project-here #taghere #a-second-tag %x-meta=data %fuu=bar additional text at the end NAMESPACE:fubar";
 
         let (leftover, mut meta) = parse_inline(input).unwrap();
 
         assert_eq!(leftover, "");
         // assert the expressions from Vec
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Namespace("fubar"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("additional text at the end"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "fuu", value: "bar" });
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "x-meta", value: "data" });
@@ -289,12 +298,13 @@ mod tests {
 
     #[test]
     fn parse_full_testcase2() {
-        let input = "some task description here PRJ:project-here #taghere TAG:a-second-tag META:x-meta=data %fuu=bar DUE:2022-08-16T16:56:00 PRIO:medium and some text at the end";
+        let input = "some task description here PRJ:project-here #taghere TAG:a-second-tag META:x-meta=data %fuu=bar DUE:2022-08-16T16:56:00 PRIO:medium and some text at the end namespace:something";
 
         let (leftover, mut meta) = parse_inline(input).unwrap();
 
         assert_eq!(leftover, "");
         // assert the expressions from Vec
+        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Namespace("something"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("and some text at the end"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Priority("medium"));
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Duedate("2022-08-16T16:56:00"));

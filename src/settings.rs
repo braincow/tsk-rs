@@ -1,9 +1,16 @@
 use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, bail};
 use bat::{PrettyPrinter, Input};
 use config::Config;
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq)]
+pub enum SettingsError {
+    #[error("namespace cannot be empty")]
+    EmptyNamespaceNotAllowed,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -64,6 +71,8 @@ impl Default for DataSettings {
 #[derive(Default, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    #[serde(skip_serializing)]
+    namespace: String,
     pub data: DataSettings,
     pub note: NoteSettings,
     pub task: TaskSettings,
@@ -77,20 +86,26 @@ impl Display for Settings {
 }
 
 impl Settings {
-    pub fn new(config_file: &str) -> Result<Self> {
+    pub fn new(namespace: String, config_file: &str) -> Result<Self> {
         let mut config = Config::builder();
         if PathBuf::from(config_file).is_file() {
             config = config.add_source(config::File::with_name(config_file));
         }
         config = config.add_source(config::Environment::with_prefix("TSK"));
         let ready_config = config.build().with_context(|| {"while reading configuration"})?;
-        let settings: Settings = ready_config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+        let mut settings: Settings = ready_config.try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+
+        if !namespace.is_empty() {
+            settings.namespace = namespace;
+        } else {
+            bail!(SettingsError::EmptyNamespaceNotAllowed);
+        }
 
         Ok(settings)
     }
 
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
-        let pathbuf = PathBuf::from(&self.data.db_path);
+        let pathbuf = PathBuf::from(&self.data.db_path).join(&self.namespace);
         if !pathbuf.is_dir() {
             create_dir_all(&pathbuf).with_context(|| {"while creating data directory"})?;
         }
