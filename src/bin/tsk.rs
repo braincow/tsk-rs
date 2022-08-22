@@ -17,8 +17,8 @@ struct Cli {
     config: PathBuf,
 
     /// Sets the namespace of tasks
-    #[clap(short, long, value_parser, value_name = "NAMESPACE", default_value = "default")]
-    namespace: String,
+    #[clap(short, long, value_parser, value_name = "NAMESPACE")]
+    namespace: Option<String>,
 
     #[clap(subcommand)]
     command: Option<Commands>,

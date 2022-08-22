@@ -1,16 +1,9 @@
 use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
-use anyhow::{Result, Context, bail};
+use anyhow::{Result, Context};
 use bat::{PrettyPrinter, Input};
 use config::Config;
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
-use thiserror::Error;
-
-#[derive(Error, Debug, PartialEq)]
-pub enum SettingsError {
-    #[error("namespace cannot be empty")]
-    EmptyNamespaceNotAllowed,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -98,19 +91,17 @@ impl Display for Settings {
 }
 
 impl Settings {
-    pub fn new(namespace: String, config_file: &str) -> Result<Self> {
+    pub fn new(namespace: Option<String>, config_file: &str) -> Result<Self> {
         let mut settings: Settings = Config::builder()
+            .set_override_option("namespace", namespace)?
             .add_source(config::File::with_name(config_file).required(false))
             .add_source(config::Environment::with_prefix("TSK").try_parsing(true).separator("_"))
             .build().with_context(|| {"while reading configuration"})?
             .try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
 
-        if !namespace.is_empty() && settings.namespace.is_empty() {
-            // namespace can come from env as well so only set it if it was not read from env by config crate
-            settings.namespace = namespace;
-        }
         if settings.namespace.is_empty() {
-            bail!(SettingsError::EmptyNamespaceNotAllowed);
+            // namespace was not given from env or command line so set it to default
+            settings.namespace = "default".to_string();
         }
 
         Ok(settings)
