@@ -262,6 +262,9 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     }
 
     if !task_cells.is_empty() {
+        if settings.output.show_namespace {
+            println!(" Namespace: '{}'", settings.namespace);
+        }
         let tasks_table = task_cells.table()
             .title(
                 vec![
@@ -275,7 +278,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             .separator(Separator::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
-        println!("No tasks");
+        println!("No tasks in namespace '{}'", settings.namespace);
     }
 
     Ok(())
@@ -370,6 +373,11 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file"})?;
 
     let task_yaml = task.to_yaml_string()?;
+
+    if settings.output.show_namespace {
+        println!(" Namespace: '{}'", settings.namespace);
+    }
+
     PrettyPrinter::new()
         .language("yaml")
         .input(Input::from_bytes(task_yaml.as_bytes()))

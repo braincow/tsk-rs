@@ -169,6 +169,9 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
     }
 
     if !note_cells.is_empty() {
+        if settings.output.show_namespace {
+            println!(" Namespace: '{}'", settings.namespace);
+        }
         let tasks_table = note_cells.table()
             .title(
                 vec!["Note ID".cell().bold(true).underline(true),
@@ -178,7 +181,7 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
             .separator(Separator::builder().build()); // empty border around the table
             print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
-        println!("No task notes");
+        println!("No task notes in namespace '{}'", settings.namespace);
     }
 
     Ok(())
@@ -265,6 +268,10 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
 fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
+
+    if settings.output.show_namespace {
+        println!(" Namespace: '{}'", settings.namespace);
+    }
 
     if !raw {
         // by default, only show the markdown inside the note yaml

@@ -40,11 +40,12 @@ pub struct OutputSettings {
     pub colors: bool,
     pub grid: bool,
     pub line_numbers: bool,
+    pub show_namespace: bool,
 }
 
 impl Default for OutputSettings {
     fn default() -> Self {
-        Self { colors: true, grid: true, line_numbers: true }
+        Self { colors: true, grid: true, line_numbers: true, show_namespace: true }
     }
 }
 
@@ -83,7 +84,7 @@ impl Default for DataSettings {
 #[serde(default)]
 pub struct Settings {
     #[serde(skip_serializing)]
-    namespace: String,
+    pub namespace: String,
     pub data: DataSettings,
     pub note: NoteSettings,
     pub task: TaskSettings,
