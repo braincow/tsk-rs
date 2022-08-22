@@ -182,7 +182,7 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
             .separator(Separator::builder().build()); // empty border around the table
             print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
-        println!("No task notes in namespace '{}'", settings.namespace);
+        println!("No task notes");
     }
 
     Ok(())

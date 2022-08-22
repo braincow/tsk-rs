@@ -279,7 +279,7 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             .separator(Separator::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
     } else {
-        println!("No tasks in namespace '{}'", settings.namespace);
+        println!("No tasks");
     }
 
     Ok(())
