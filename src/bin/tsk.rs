@@ -139,6 +139,10 @@ fn main() -> Result<()> {
     let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
+    if settings.output.show_namespace {
+        println!(" Namespace: '{}'", settings.namespace);
+    }
+
     match &cli.command {
         Some(Commands::Set { id, priority, due_date,
                 tag, project, metadata }) => {
@@ -262,9 +266,6 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
     }
 
     if !task_cells.is_empty() {
-        if settings.output.show_namespace {
-            println!(" Namespace: '{}'", settings.namespace);
-        }
         let tasks_table = task_cells.table()
             .title(
                 vec![
@@ -373,10 +374,6 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file"})?;
 
     let task_yaml = task.to_yaml_string()?;
-
-    if settings.output.show_namespace {
-        println!(" Namespace: '{}'", settings.namespace);
-    }
 
     PrettyPrinter::new()
         .language("yaml")

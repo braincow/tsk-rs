@@ -21,6 +21,6 @@ db_path = "test_data"   # if uncommented defaults to users data directory in the
 #colors = true                          # colorize task and note outputs
 #grid = true                            # draw a box around output
 #line_numbers = true                    # show line numbers in output
-#show_namespace = true                  # make namespace visible in listings and details
+#show_namespace = true                  # make namespace visible during execution
 
 # eof

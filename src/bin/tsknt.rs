@@ -92,6 +92,10 @@ fn main() -> Result<()> {
     let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
+    if settings.output.show_namespace {
+        println!(" Namespace: '{}'", settings.namespace);
+    }
+   
     match &cli.command {
         Some(Commands::Edit { id, raw }) => {
             edit_note(id, raw, &settings)
@@ -169,9 +173,6 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
     }
 
     if !note_cells.is_empty() {
-        if settings.output.show_namespace {
-            println!(" Namespace: '{}'", settings.namespace);
-        }
         let tasks_table = note_cells.table()
             .title(
                 vec!["Note ID".cell().bold(true).underline(true),
@@ -268,10 +269,6 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
 fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
-
-    if settings.output.show_namespace {
-        println!(" Namespace: '{}'", settings.namespace);
-    }
 
     if !raw {
         // by default, only show the markdown inside the note yaml
