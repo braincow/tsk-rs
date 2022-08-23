@@ -41,9 +41,9 @@ enum Commands {
     },
     /// List task(s)
     List {
-        /// Existing task id or a part of one. Empty will list all.
+        /// Search a word or a part of word from description, project and/or tags. Empty will list all.
         #[clap(value_parser)]
-        id: Option<String>,
+        search: Option<String>,
         /// Include also completed tasks
         #[clap(short, long, value_parser)]
         include_done: bool
@@ -161,8 +161,8 @@ fn main() -> Result<()> {
         Some(Commands::Config) => {
             show_config(&settings)
         },
-        Some(Commands::List { id, include_done }) => {
-            list_tasks(id, include_done, &settings)
+        Some(Commands::List { search, include_done }) => {
+            list_tasks(search, include_done, &settings)
         },
         Some(Commands::Done { id }) => {
             complete_task(id, &settings)
@@ -199,13 +199,8 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
-    let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
-    if id.is_some() {
-        task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
-    } else {
-        task_pathbuf = task_pathbuf.join("*.yaml");
-    }
+fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
+    let task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?.join("*.yaml");
 
     let mut found_tasks: Vec<Task> = vec![];
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
@@ -214,8 +209,17 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             continue;
         }
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
+
         if !task.done || *include_done {
-            found_tasks.push(task);
+            if let Some(search) = search {
+                if task.loose_match(search) {
+                    // a part of key information matches search term, so the task is included
+                    found_tasks.push(task);
+                }
+            } else {
+                // search term is empty so everything matches
+                found_tasks.push(task);
+            }
         }   
     }
     found_tasks.sort_by_key(|k| k.score().unwrap());
