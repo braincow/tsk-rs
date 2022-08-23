@@ -27,6 +27,10 @@ struct Cli {
     #[clap(short, long, value_parser, value_name = "FILE", default_value = "tsk.toml")]
     config: PathBuf,
 
+    /// Sets the namespace of tasks
+    #[clap(short, long, value_parser, value_name = "NAMESPACE")]
+    namespace: Option<String>,
+
     #[clap(subcommand)]
     command: Option<Commands>,
 }
@@ -57,7 +61,7 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let settings = Settings::new(cli.config.to_str().unwrap())
+    let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
     match &cli.command {
@@ -140,12 +144,19 @@ fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDateTime, duration: &Durati
                         
                         if timetrack.start_time.date() == test_date.date() || tr_end_time.date() == test_date.date() {
                             // timetrack was started or stopped today
-                            let end_of_day = test_date.date() + Duration::hours(24);
+                            let end_of_day = test_date.date() + Duration::hours(24); // add 24 hours (so basicly next day, but we get a baseline to which subtract from)
+                            if timetrack.start_time.date() == test_date.date() {
+                                
+                            }
                             continue;
                         }
                         
                         if timetrack.start_time.date() != test_date.date() && tr_end_time.date() != test_date.date() {
-                            // timetrack was not running today or it ran for the entire day
+                            // timetrack ran through the entire day
+                            let duration = Duration::hours(24);
+                            let total_duration = *inner.get(&task.id).unwrap_or(&default_duration);
+                            let new_duration = total_duration + duration;
+                            inner.insert(task.id, new_duration);
                             continue;
                         }
                     }
