@@ -73,6 +73,28 @@ impl Display for Task {
 }
 
 impl Task {
+    pub fn loose_match(&self, search: &str) -> bool {
+        if self.description.to_lowercase().contains(&search.to_lowercase()) {
+            return true;
+        }
+
+        if let Some(project) = self.project.clone() {
+            if project.to_lowercase().contains(&search.to_lowercase()) {
+                return true;
+            }
+        }
+
+        if let Some(tags) = self.tags.clone() {
+            for tag in tags {
+                if tag.to_lowercase().contains(&search.to_lowercase()) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn is_running(&self) -> bool {
         if self.timetracker.is_none() {
             return false;

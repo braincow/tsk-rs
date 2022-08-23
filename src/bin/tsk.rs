@@ -16,6 +16,10 @@ struct Cli {
     #[clap(short, long, value_parser, value_name = "FILE", default_value = "tsk.toml")]
     config: PathBuf,
 
+    /// Sets the namespace of tasks
+    #[clap(short, long, value_parser, value_name = "NAMESPACE")]
+    namespace: Option<String>,
+
     #[clap(subcommand)]
     command: Option<Commands>,
 }
@@ -37,9 +41,9 @@ enum Commands {
     },
     /// List task(s)
     List {
-        /// Existing task id or a part of one. Empty will list all.
+        /// Search a word or a part of word from description, project and/or tags. Empty will list all.
         #[clap(value_parser)]
-        id: Option<String>,
+        search: Option<String>,
         /// Include also completed tasks
         #[clap(short, long, value_parser)]
         include_done: bool
@@ -132,8 +136,12 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let settings = Settings::new(cli.config.to_str().unwrap())
+    let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
+
+    if settings.output.show_namespace {
+        println!(" Namespace: '{}'", settings.namespace);
+    }
 
     match &cli.command {
         Some(Commands::Set { id, priority, due_date,
@@ -153,8 +161,8 @@ fn main() -> Result<()> {
         Some(Commands::Config) => {
             show_config(&settings)
         },
-        Some(Commands::List { id, include_done }) => {
-            list_tasks(id, include_done, &settings)
+        Some(Commands::List { search, include_done }) => {
+            list_tasks(search, include_done, &settings)
         },
         Some(Commands::Done { id }) => {
             complete_task(id, &settings)
@@ -179,17 +187,20 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
     let mut task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", task.id)));
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+
+    // once the task file has been created check for special tags that should take immediate action
+    if let Some(tags) = task.tags.clone() {
+        if tags.contains(&"start".to_string()) && settings.task.enable_start_special_tag {
+            start_task(&task.id.to_string(), &Some("started on creation".to_string()), settings)?;
+        }
+    }
+
     println!("Created a task '{}'", task.id);
     Ok(())
 }
 
-fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
-    let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
-    if id.is_some() {
-        task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
-    } else {
-        task_pathbuf = task_pathbuf.join("*.yaml");
-    }
+fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
+    let task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?.join("*.yaml");
 
     let mut found_tasks: Vec<Task> = vec![];
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
@@ -198,8 +209,17 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
             continue;
         }
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
+
         if !task.done || *include_done {
-            found_tasks.push(task);
+            if let Some(search) = search {
+                if task.loose_match(search) {
+                    // a part of key information matches search term, so the task is included
+                    found_tasks.push(task);
+                }
+            } else {
+                // search term is empty so everything matches
+                found_tasks.push(task);
+            }
         }   
     }
     found_tasks.sort_by_key(|k| k.score().unwrap());
@@ -213,20 +233,28 @@ fn list_tasks(id: &Option<String>, include_done: &bool, settings: &Settings) -> 
         } else {
             "[stopped]".to_string()
         };
-        let cell_color = match found_task.score()? {
-            7..=12 => Some(Color::Green),
-            13..=18 => Some(Color::Yellow),
-            n if n >= 19 => Some(Color::Red),
-            _ => None
-        };
+        let mut cell_color: Option<Color> = None;
+        if settings.output.colors {
+            cell_color = match found_task.score()? {
+                7..=12 => Some(Color::Green),
+                13..=18 => Some(Color::Yellow),
+                n if n >= 19 => Some(Color::Red),
+                _ => None
+            };    
+        }
         let description = if let Some(tags) = found_task.tags.clone() {
             let mut desc = found_task.description.clone();
-            // make special tags visible
-            if tags.contains(&"next".to_string()) {
-                desc = format!("{} #next", desc);
-            }
-            if tags.contains(&"hold".to_string()) {
-                desc = format!("{} #hold", desc);
+            if settings.task.show_special_tags_on_list {
+                // make special tags visible
+                if tags.contains(&"next".to_string()) {
+                    desc = format!("{} #next", desc);
+                }
+                if tags.contains(&"hold".to_string()) {
+                    desc = format!("{} #hold", desc);
+                }
+                if tags.contains(&"start".to_string()) {
+                    desc = format!("{} #start", desc);
+                }
             }
             desc
         } else {
@@ -265,13 +293,17 @@ fn complete_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
-    if task.is_running() {
+    if task.is_running() && settings.task.stop_tracking_when_done {
         // task is running, so first stop it
         stop_task(id, &false, settings)?;
     }
 
     // remove special tags when task is marked completed
-    unset_characteristic(id, &false, &false, &Some(vec!["next".to_string(), "hold".to_string()]), &false, &None, settings)?;
+    if settings.task.remove_special_tags_on_done {
+        unset_characteristic(id, &false, &false, 
+            &Some(vec!["start".to_string(), "next".to_string(), "hold".to_string()]),
+            &false, &None, settings)?;    
+    }
 
     task.mark_as_completed().with_context(|| {"while modifying task"})?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
@@ -346,11 +378,13 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
     let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file"})?;
 
     let task_yaml = task.to_yaml_string()?;
+
     PrettyPrinter::new()
         .language("yaml")
         .input(Input::from_bytes(task_yaml.as_bytes()))
         .colored_output(settings.output.colors)
         .grid(settings.output.grid)
+        .line_numbers(settings.output.line_numbers)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 

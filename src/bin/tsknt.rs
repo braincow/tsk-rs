@@ -14,6 +14,10 @@ struct Cli {
     #[clap(short, long, value_parser, value_name = "FILE", default_value = "tsk.toml")]
     config: PathBuf,
 
+    /// Sets the namespace of tasks
+    #[clap(short, long, value_parser, value_name = "NAMESPACE")]
+    namespace: Option<String>,
+
     #[clap(subcommand)]
     command: Option<Commands>,
 }
@@ -85,9 +89,13 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let settings = Settings::new(cli.config.to_str().unwrap())
+    let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
+    if settings.output.show_namespace {
+        println!(" Namespace: '{}'", settings.namespace);
+    }
+   
     match &cli.command {
         Some(Commands::Edit { id, raw }) => {
             edit_note(id, raw, &settings)
@@ -270,6 +278,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
                 .input(Input::from_bytes(md.as_bytes()))
                 .colored_output(settings.output.colors)
                 .grid(settings.output.grid)
+                .line_numbers(settings.output.line_numbers)
                 .print()
                 .with_context(|| {"while trying to prettyprint markdown"})?;
         }
@@ -280,6 +289,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             .input(Input::from_bytes(note_yaml.as_bytes()))
             .colored_output(settings.output.colors)
             .grid(settings.output.grid)
+            .line_numbers(settings.output.line_numbers)
             .print()
             .with_context(|| {"while trying to prettyprint yaml"})?;
     }
