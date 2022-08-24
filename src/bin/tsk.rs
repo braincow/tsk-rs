@@ -336,9 +336,22 @@ fn delete_task(id: &String, force: &bool, settings: &Settings) -> Result<()> {
 fn edit_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    let mut modified = false;
+
     let new_yaml = edit::edit_with_builder(task.to_yaml_string()?, edit::Builder::new().suffix(".yaml")).with_context(|| {"while starting an external editor"})?;
-    task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
-    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
+
+    if new_yaml != task.to_yaml_string()? {
+        task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
+        modified = true;
+    }
+
+    if modified {
+        task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
+        println!("Task '{}' was updated.", task.id);
+    } else {
+        println!("No updates made to task '{}'.", task.id);
+    }
 
     Ok(())
 }
