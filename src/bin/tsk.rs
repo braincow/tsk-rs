@@ -64,13 +64,14 @@ enum Commands {
         force: bool,
     },
     /// Start tracking a task
+    #[clap(trailing_var_arg = true)]
     Start {
         /// Existing task id
         #[clap(value_parser)]
         id: String,
         /// Optional annotation for the job at hand
-        #[clap(raw = true, value_parser)]
-        annotation: Option<String>,
+        #[clap(multiple = true, value_parser)]
+        annotation: Vec<String>,
     },
     /// Stop from tracking a task
     Stop {
@@ -174,7 +175,11 @@ fn main() -> Result<()> {
             edit_task(id, &settings)
         },
         Some(Commands::Start { id, annotation }) => {
-            start_task(id, annotation, &settings)
+            if !annotation.is_empty() {
+                start_task(id, &Some(annotation.join(" ")), &settings)
+            } else {
+                start_task(id, &None, &settings)
+            }
         },
         Some(Commands::Stop { id, done }) => {
             stop_task(id, done, &settings)
