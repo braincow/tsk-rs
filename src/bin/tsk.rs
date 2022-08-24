@@ -242,8 +242,15 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
                 _ => None
             };    
         }
+
+        let mut desc = found_task.description.clone();
+        if desc.len() > settings.output.max_description_length + 3 {
+            // if the desc truncated to max length plus three dot characters is
+            //  shorter than the max len then truncate it and add those three dots
+            desc = format!("{}...", &desc[..settings.output.max_description_length]);
+        }
+
         let description = if let Some(tags) = found_task.tags.clone() {
-            let mut desc = found_task.description.clone();
             if settings.task.show_special_tags_on_list {
                 // make special tags visible
                 if tags.contains(&"next".to_string()) {
@@ -258,8 +265,9 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
             }
             desc
         } else {
-            found_task.description.clone()
+            desc
         };
+
         task_cells.push(vec![
             found_task.id.cell().foreground_color(cell_color),
             description.cell().foreground_color(cell_color),

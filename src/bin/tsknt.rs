@@ -157,8 +157,16 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
                 // .. task is not done so show it
                 show_note = true;
             }
+
+            let mut desc = task.description.clone();
+            if desc.len() > settings.output.max_description_length + 3 {
+                // if the desc truncated to max length plus three dot characters is
+                //  shorter than the max len then truncate it and add those three dots
+                desc = format!("{}...", &desc[..settings.output.max_description_length]);
+            }
+
             if show_note {
-                note_cells.push(vec![note.task_id.cell(), task.description.cell(),
+                note_cells.push(vec![note.task_id.cell(), desc.cell(),
                     task.project.unwrap_or_else(|| {"".to_string()}).cell(),]);
             }
         } else if *orphaned {
