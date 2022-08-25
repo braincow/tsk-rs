@@ -23,5 +23,6 @@ db_path = "test_data"   # if uncommented defaults to users data directory in the
 #line_numbers = true                    # show line numbers in output
 #show_namespace = true                  # make namespace visible during execution
 #max_description_length = 30            # maximum number of characters to show in listings for description before it is truncated
+#show_totals = true                     # show total number of entries in listings
 
 # eof

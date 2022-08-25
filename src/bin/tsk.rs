@@ -208,11 +208,14 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
     let task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?.join("*.yaml");
 
     let mut found_tasks: Vec<Task> = vec![];
+    let mut total_tasks_count: usize = 0;
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
         if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
             continue;
         }
+        total_tasks_count += 1;
+
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
 
         if !task.done || *include_done {
@@ -225,13 +228,16 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
                 // search term is empty so everything matches
                 found_tasks.push(task);
             }
-        }   
+        }
     }
     found_tasks.sort_by_key(|k| k.score().unwrap());
     found_tasks.reverse();
 
     let mut task_cells = vec![];
+    let mut found_tasks_count: usize = 0;
     for found_task in found_tasks {
+        found_tasks_count += 1;
+
         let runtime_str = if found_task.is_running() {
             let runtime = found_task.current_runtime().unwrap();
             Hhmmss::hhmmss(&runtime)
@@ -295,6 +301,9 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
             .border(Border::builder().build())
             .separator(Separator::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
+        if settings.output.show_totals {
+            println!("\n Number of tasks: {}/{}", found_tasks_count, total_tasks_count);
+        }
     } else {
         println!("No tasks");
     }
