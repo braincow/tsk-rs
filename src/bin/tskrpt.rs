@@ -1,8 +1,11 @@
+use bat::{PrettyPrinter, Input};
 use glob::glob;
+use serde::Serialize;
+use serde_with::{DisplayFromStr, DurationSeconds, serde_as};
 use uuid::Uuid;
 use std::{path::PathBuf, collections::BTreeMap};
 use anyhow::{Result, Context, bail};
-use chrono::{Local, Duration, DateTime, Date, NaiveDate};
+use chrono::{Local, Duration, DateTime, NaiveDate, Date};
 use clap::{Parser, Subcommand};
 use tsk_rs::{settings::Settings, task::Task};
 
@@ -68,7 +71,7 @@ fn main() -> Result<()> {
         Some(Commands::Summary { id, interval, start_date, end_date, include_done }) => {
             let duration = match end_date {
                 Some(end_date) => *end_date - *start_date,
-                None => {Local::now().naive_local().date() - *start_date},
+                None => (Local::now().naive_local().date() + Duration::days(1)) - *start_date,
             };
             if duration.num_seconds() <= 0 {
                 bail!(ReportError::EndDateInThePast);
@@ -100,11 +103,18 @@ fn summary_report(id: &Option<String>, interval: &SummaryInterval, start_date: &
     }
 
     match *interval {
-        SummaryInterval::Daily => daily_summary(found_tasks, start_date, duration),
+        SummaryInterval::Daily => daily_summary(found_tasks, start_date, duration, settings),
     }
 }
 
-fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDate, duration: &Duration) -> Result<()> {
+#[serde_as]
+#[derive(Debug, Clone, Serialize)]
+struct DailySummaryReport {
+    #[serde_as(as = "BTreeMap<DisplayFromStr, BTreeMap<DisplayFromStr, DurationSeconds<f64>>>")]
+    pub summary: BTreeMap<Date<Local>, BTreeMap<Uuid, Duration>>,
+}
+
+fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDate, duration: &Duration, settings: &Settings) -> Result<()> {
     let mut summary: BTreeMap<Date<Local>, BTreeMap<Uuid, Duration>> = BTreeMap::new();
 
     let default_duration = Duration::seconds(0);
@@ -167,13 +177,28 @@ fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDate, duration: &Duration) 
                     }
                 }
             }
-            summary.insert(test_date.date(), inner);
+
+            if let Some(old_summary) = summary.get_mut(&test_date.date()) {
+                old_summary.append(&mut inner);
+            } else {
+                summary.insert(test_date.date(), inner);
+            }
         }
     }
-    println!("{:?}", summary);
+
+    let report = DailySummaryReport { summary };
+    let yaml = serde_yaml::to_string(&report)?;
+
+    PrettyPrinter::new()
+        .language("yaml")
+        .input(Input::from_bytes(yaml.as_bytes()))
+        .colored_output(settings.output.colors)
+        .grid(settings.output.grid)
+        .line_numbers(settings.output.line_numbers)
+        .print()
+        .with_context(|| {"while trying to prettyprint yaml"})?;
 
     Ok(())
 }
-
 
 // eof
