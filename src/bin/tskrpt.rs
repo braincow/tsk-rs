@@ -2,7 +2,7 @@ use glob::glob;
 use uuid::Uuid;
 use std::{path::PathBuf, collections::BTreeMap};
 use anyhow::{Result, Context, bail};
-use chrono::{NaiveDateTime, Local, Duration, DateTime, Date};
+use chrono::{Local, Duration, DateTime, Date, NaiveDate};
 use clap::{Parser, Subcommand};
 use tsk_rs::{settings::Settings, task::Task};
 
@@ -48,10 +48,10 @@ enum Commands {
         interval: SummaryInterval,
         /// Start time of the summary listing
         #[clap(long,value_parser)]
-        start_date: NaiveDateTime,
+        start_date: NaiveDate,
         /// End time of the summary listing
         #[clap(long,value_parser)]
-        end_date: Option<NaiveDateTime>,
+        end_date: Option<NaiveDate>,
         /// Include also completed tasks
         #[clap(short, long, value_parser)]
         include_done: bool,
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
         Some(Commands::Summary { id, interval, start_date, end_date, include_done }) => {
             let duration = match end_date {
                 Some(end_date) => *end_date - *start_date,
-                None => {Local::now().naive_local() - *start_date},
+                None => {Local::now().naive_local().date() - *start_date},
             };
             if duration.num_seconds() <= 0 {
                 bail!(ReportError::EndDateInThePast);
@@ -79,7 +79,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn summary_report(id: &Option<String>, interval: &SummaryInterval, start_date: &NaiveDateTime, duration: &Duration, include_done: &bool, settings: &Settings) -> Result<()> {
+fn summary_report(id: &Option<String>, interval: &SummaryInterval, start_date: &NaiveDate, duration: &Duration, include_done: &bool, settings: &Settings) -> Result<()> {
     let mut task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
     if id.is_some() {
         task_pathbuf = task_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
@@ -104,14 +104,14 @@ fn summary_report(id: &Option<String>, interval: &SummaryInterval, start_date: &
     }
 }
 
-fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDateTime, duration: &Duration) -> Result<()> {
+fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDate, duration: &Duration) -> Result<()> {
     let mut summary: BTreeMap<Date<Local>, BTreeMap<Uuid, Duration>> = BTreeMap::new();
 
     let default_duration = Duration::seconds(0);
 
     for task in tasks {
         for day in 0..duration.num_days() {
-            let test_date = start_date.and_local_timezone(Local).unwrap() + Duration::days(day);
+            let test_date = start_date.and_hms(0, 0, 0).and_local_timezone(Local).unwrap() + Duration::days(day);
 
             let mut inner: BTreeMap<Uuid, Duration> = BTreeMap::new();
 
@@ -132,11 +132,11 @@ fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDateTime, duration: &Durati
             if let Some(timetracks) = task.timetracker.clone() {
                 for timetrack in timetracks {
                     if let Some(duration) = timetrack.duration() {
+                        let total_duration = *inner.get(&task.id).unwrap_or(&default_duration);
                         // timetrack is running so it has a duration
                         let tr_end_time = timetrack.end_time.unwrap();
                         if timetrack.start_time.date() == test_date.date() && tr_end_time.date() == test_date.date() {
-                            // timetrack was started today and it ended today
-                            let total_duration = *inner.get(&task.id).unwrap_or(&default_duration);
+                            // timetrack was started today and it ended today                           
                             let new_duration = total_duration + duration;
                             inner.insert(task.id, new_duration);
                             continue;
@@ -144,17 +144,22 @@ fn daily_summary(tasks: Vec<Task>, start_date: &NaiveDateTime, duration: &Durati
                         
                         if timetrack.start_time.date() == test_date.date() || tr_end_time.date() == test_date.date() {
                             // timetrack was started or stopped today
-                            let end_of_day = test_date.date() + Duration::hours(24); // add 24 hours (so basicly next day, but we get a baseline to which subtract from)
-                            if timetrack.start_time.date() == test_date.date() {
-                                
-                            }
+                            let new_duration: Duration = if timetrack.start_time.date() == test_date.date() {
+                                // started today; 
+                                let end_of_day: DateTime<Local> = test_date.date().and_hms(23, 59, 59);
+                                total_duration + (end_of_day - timetrack.start_time)
+                            } else {
+                                // ended today
+                                let start_of_day: DateTime<Local> = test_date.date().and_hms(0,0,0);
+                                total_duration + (tr_end_time - start_of_day)
+                            };
+                            inner.insert(task.id, new_duration);
                             continue;
                         }
                         
                         if timetrack.start_time.date() != test_date.date() && tr_end_time.date() != test_date.date() {
                             // timetrack ran through the entire day
                             let duration = Duration::hours(24);
-                            let total_duration = *inner.get(&task.id).unwrap_or(&default_duration);
                             let new_duration = total_duration + duration;
                             inner.insert(task.id, new_duration);
                             continue;
