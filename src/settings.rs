@@ -34,11 +34,20 @@ pub struct OutputSettings {
     pub grid: bool,
     pub line_numbers: bool,
     pub show_namespace: bool,
+    pub max_description_length: usize,
+    pub show_totals: bool,
 }
 
 impl Default for OutputSettings {
     fn default() -> Self {
-        Self { colors: true, grid: true, line_numbers: true, show_namespace: true }
+        Self {
+            colors: true,
+            grid: true,
+            line_numbers: true,
+            show_namespace: true,
+            max_description_length: 30,
+            show_totals: true,
+        }
     }
 }
 

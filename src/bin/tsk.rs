@@ -64,13 +64,14 @@ enum Commands {
         force: bool,
     },
     /// Start tracking a task
+    #[clap(trailing_var_arg = true)]
     Start {
         /// Existing task id
         #[clap(value_parser)]
         id: String,
         /// Optional annotation for the job at hand
-        #[clap(raw = true, value_parser)]
-        annotation: Option<String>,
+        #[clap(multiple = true, value_parser)]
+        annotation: Vec<String>,
     },
     /// Stop from tracking a task
     Stop {
@@ -174,7 +175,11 @@ fn main() -> Result<()> {
             edit_task(id, &settings)
         },
         Some(Commands::Start { id, annotation }) => {
-            start_task(id, annotation, &settings)
+            if !annotation.is_empty() {
+                start_task(id, &Some(annotation.join(" ")), &settings)
+            } else {
+                start_task(id, &None, &settings)
+            }
         },
         Some(Commands::Stop { id, done }) => {
             stop_task(id, done, &settings)
@@ -203,11 +208,14 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
     let task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?.join("*.yaml");
 
     let mut found_tasks: Vec<Task> = vec![];
+    let mut total_tasks_count: usize = 0;
     for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
         // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
         if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
             continue;
         }
+        total_tasks_count += 1;
+
         let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
 
         if !task.done || *include_done {
@@ -220,13 +228,16 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
                 // search term is empty so everything matches
                 found_tasks.push(task);
             }
-        }   
+        }
     }
     found_tasks.sort_by_key(|k| k.score().unwrap());
     found_tasks.reverse();
 
     let mut task_cells = vec![];
+    let mut found_tasks_count: usize = 0;
     for found_task in found_tasks {
+        found_tasks_count += 1;
+
         let runtime_str = if found_task.is_running() {
             let runtime = found_task.current_runtime().unwrap();
             Hhmmss::hhmmss(&runtime)
@@ -242,8 +253,15 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
                 _ => None
             };    
         }
+
+        let mut desc = found_task.description.clone();
+        if desc.len() > settings.output.max_description_length + 3 {
+            // if the desc truncated to max length plus three dot characters is
+            //  shorter than the max len then truncate it and add those three dots
+            desc = format!("{}...", &desc[..settings.output.max_description_length]);
+        }
+
         let description = if let Some(tags) = found_task.tags.clone() {
-            let mut desc = found_task.description.clone();
             if settings.task.show_special_tags_on_list {
                 // make special tags visible
                 if tags.contains(&"next".to_string()) {
@@ -258,8 +276,9 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
             }
             desc
         } else {
-            found_task.description.clone()
+            desc
         };
+
         task_cells.push(vec![
             found_task.id.cell().foreground_color(cell_color),
             description.cell().foreground_color(cell_color),
@@ -282,6 +301,9 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
             .border(Border::builder().build())
             .separator(Separator::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
+        if settings.output.show_totals {
+            println!("\n Number of tasks: {}/{}", found_tasks_count, total_tasks_count);
+        }
     } else {
         println!("No tasks");
     }
@@ -336,9 +358,22 @@ fn delete_task(id: &String, force: &bool, settings: &Settings) -> Result<()> {
 fn edit_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+
+    let mut modified = false;
+
     let new_yaml = edit::edit_with_builder(task.to_yaml_string()?, edit::Builder::new().suffix(".yaml")).with_context(|| {"while starting an external editor"})?;
-    task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
-    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
+
+    if new_yaml != task.to_yaml_string()? {
+        task = Task::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified task yaml"})?;
+        modified = true;
+    }
+
+    if modified {
+        task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified task yaml file"})?;
+        println!("Task '{}' was updated.", task.id);
+    } else {
+        println!("No updates made to task '{}'.", task.id);
+    }
 
     Ok(())
 }
