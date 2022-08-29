@@ -131,7 +131,19 @@ enum Commands {
         /// Remove metadata(s) from task
         #[clap(long,value_parser)]
         metadata: Option<Vec<String>>,
-    }
+    },
+    /// Shorthand: set 'hold' special tag for task
+    Hold {
+        /// Existing task id
+        #[clap(value_parser)]
+        id: String,
+    },
+    /// Shorthand: set 'next' special tag for task
+    Next {
+        /// Existing task id
+        #[clap(value_parser)]
+        id: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -184,6 +196,8 @@ fn main() -> Result<()> {
         Some(Commands::Stop { id, done }) => {
             stop_task(id, done, &settings)
         },
+        Some(Commands::Hold { id}) => set_characteristic(id, &None, &None, &Some(vec!["hold".to_string()]), &None, &None, &settings),
+        Some(Commands::Next { id}) => set_characteristic(id, &None, &None, &Some(vec!["next".to_string()]), &None, &None, &settings),
         None => {list_tasks(&None, &false, &settings)}
     }
 }
