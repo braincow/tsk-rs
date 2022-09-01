@@ -485,6 +485,7 @@ fn set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date: &O
 
     if project.is_some() {
         task.project = project.clone();
+        println!("Task now belongs to project '{}'", task.project.clone().unwrap());
         modified = true;
     }
 
@@ -555,6 +556,7 @@ fn unset_characteristic(id: &String, priority: &bool, due_date: &bool,
 
     if *project {
         task.project = None;
+        println!("Task no longer is part of any project.");
         modified = true;
     }
 
