@@ -12,7 +12,7 @@ readme = "README.md"
 anyhow = "1.0.63"
 bat = { version = "0.21.0", default-features = false, features = ["regex-fancy"] }
 chrono = { version = "0.4.22", features = ["serde"] }
-clap = { version = "3.2.19", features = ["derive"] }
+clap = { version = "3.2.20", features = ["derive"] }
 cli-table = "0.4.7"
 config = "0.13.2"
 directories = "4.0.1"
