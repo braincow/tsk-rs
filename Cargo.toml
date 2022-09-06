@@ -9,7 +9,7 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.63"
+anyhow = "1.0.64"
 bat = { version = "0.21.0", default-features = false, features = ["regex-fancy"] }
 chrono = { version = "0.4.22", features = ["serde"] }
 clap = { version = "3.2.20", features = ["derive"] }
