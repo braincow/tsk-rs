@@ -103,9 +103,9 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bat"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd1212d80800b3d7614b3725e0b2ee3b45b2b7484805d54b5660c8fa6f706305"
+checksum = "6c348a76292119d535d7bdc736d99303d425449098c4d10dce5318b48150112d"
 dependencies = [
  "ansi_colours",
  "ansi_term",
