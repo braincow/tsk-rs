@@ -10,7 +10,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.64"
-bat = { version = "0.22.0", default-features = false, features = ["regex-fancy"] }
+bat = { version = "0.22.1", default-features = false, features = ["regex-fancy"] }
 chrono = { version = "0.4.22", features = ["serde"] }
 clap = { version = "3.2.21", features = ["derive"] }
 cli-table = "0.4.7"
