@@ -157,7 +157,7 @@ fn parse_inline(input: &str) -> IResult<&str, Vec<ExpressionPrototype>> {
     Ok(("", output))
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum LexiconError {
     #[error("i got confused by the language")]
     ParserError(String),

@@ -17,7 +17,7 @@ pub enum TaskPriority {
    Critical,
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum TaskError {
     #[error("only one project identifier allowed")]
     MultipleProjectsNotAllowed,
