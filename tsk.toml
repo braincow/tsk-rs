@@ -3,26 +3,26 @@
 #
 
 [data]
-db_path = "test_data"   # if uncommented defaults to users data directory in the os e.g $HOME/.local/share/tsk-rs
-#rotate = 3            # keep X occurances of all data files present as backups
+path = "test_data"          # if uncommented defaults to users data directory in the os e.g $HOME/.local/share/tsk-rs
+#rotate = 3                 # keep X occurances of all data files present as backups
 
 #[note]
-#add_description_on_new = true  # if false does not add '# description' header to Markdown on edit
-#add_timestamp_on_edit = true   # if false does not add current date and time to Markdown on edit
+#description = true         # if false does not add '# description' header to Markdown on edit
+#timestamp = true           # if false does not add current date and time to Markdown on edit
 
 #[task]
-#release_hold_on_start = true          # if false then if task has a special tag "hold" set it is left in place
-#enable_start_special_tag = true       # if false then special tag "start" has no effect when new task is created
-#show_special_tags_on_list = true      # if false then special tags are not visible in task listings
-#stop_tracking_when_done = true        # if false then when task is marked done possible time tracking is not stopped first
-#remove_special_tags_on_done = true    # if false then when task is marked done all special tags are left in place
+#autorelease = true         # if false then if task has a special tag "hold" set it is left in place
+#starttag = true            # if false then special tag "start" has no effect when new task is created
+#specialvisible = true      # if false then special tags are not visible in task listings
+#stopondone = true          # if false then when task is marked done possible time tracking is not stopped first
+#clearpsecialtags = true    # if false then when task is marked done all special tags are left in place
 
 #[output]
-#colors = true                          # colorize task and note outputs
-#grid = true                            # draw a box around output
-#line_numbers = true                    # show line numbers in output
-#show_namespace = true                  # make namespace visible during execution
-#max_description_length = 30            # maximum number of characters to show in listings for description before it is truncated
-#show_totals = true                     # show total number of entries in listings
+#colors = true              # colorize task and note outputs
+#grid = true                # draw a box around output
+#numbers = true             # show line numbers in output
+#namespace = true           # make namespace visible during execution
+#descriptionlength = 60     # maximum number of characters to show in listings for description before it is truncated
+#totals = true              # show total number of entries in listings
 
 # eof

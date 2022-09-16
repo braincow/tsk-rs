@@ -152,7 +152,7 @@ fn main() -> Result<()> {
     let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
-    if settings.output.show_namespace {
+    if settings.output.namespace {
         println!(" Namespace: '{}'", settings.namespace);
     }
 
@@ -209,7 +209,7 @@ fn new_task(descriptor: String, settings: &Settings) -> Result<()> {
 
     // once the task file has been created check for special tags that should take immediate action
     if let Some(tags) = task.tags.clone() {
-        if tags.contains(&"start".to_string()) && settings.task.enable_start_special_tag {
+        if tags.contains(&"start".to_string()) && settings.task.starttag {
             start_task(&task.id.to_string(), &Some("started on creation".to_string()), settings)?;
         }
     }
@@ -269,14 +269,14 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
         }
 
         let mut desc = found_task.description.clone();
-        if desc.len() > settings.output.max_description_length + 3 {
+        if desc.len() > settings.output.descriptionlength + 3 {
             // if the desc truncated to max length plus three dot characters is
             //  shorter than the max len then truncate it and add those three dots
-            desc = format!("{}...", &desc[..settings.output.max_description_length]);
+            desc = format!("{}...", &desc[..settings.output.descriptionlength]);
         }
 
         let description = if let Some(tags) = found_task.tags.clone() {
-            if settings.task.show_special_tags_on_list {
+            if settings.task.specialvisible {
                 // make special tags visible
                 if tags.contains(&"next".to_string()) {
                     desc = format!("{} #next", desc);
@@ -315,7 +315,7 @@ fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings)
             .border(Border::builder().build())
             .separator(Separator::builder().build()); // empty border around the table
         print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
-        if settings.output.show_totals {
+        if settings.output.totals {
             println!("\n Number of tasks: {}/{}", found_tasks_count, total_tasks_count);
         }
     } else {
@@ -329,13 +329,13 @@ fn complete_task(id: &String, settings: &Settings) -> Result<()> {
     let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
     let mut task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
 
-    if task.is_running() && settings.task.stop_tracking_when_done {
+    if task.is_running() && settings.task.stopondone {
         // task is running, so first stop it
         stop_task(id, &false, settings)?;
     }
 
     // remove special tags when task is marked completed
-    if settings.task.remove_special_tags_on_done {
+    if settings.task.clearpsecialtags {
         unset_characteristic(id, &false, &false, 
             &Some(vec!["start".to_string(), "next".to_string(), "hold".to_string()]),
             &false, &None, settings)?;    
@@ -399,7 +399,7 @@ fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> 
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
 
     // if special tag (hold) is present then release the hold by modifying tags.
-    if settings.task.release_hold_on_start {
+    if settings.task.autorelease {
         unset_characteristic(id, &false, &false, &Some(vec!["hold".to_string()]),
             &false, &None, settings)?;
     }
@@ -433,7 +433,7 @@ fn show_task(id: &String, settings: &Settings) -> Result<()> {
         .input(Input::from_bytes(task_yaml.as_bytes()))
         .colored_output(settings.output.colors)
         .grid(settings.output.grid)
-        .line_numbers(settings.output.line_numbers)
+        .line_numbers(settings.output.numbers)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 

@@ -92,7 +92,7 @@ fn main() -> Result<()> {
     let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
         .with_context(|| {"while loading settings"})?;
 
-    if settings.output.show_namespace {
+    if settings.output.namespace {
         println!(" Namespace: '{}'", settings.namespace);
     }
    
@@ -163,10 +163,10 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
             }
 
             let mut desc = task.description.clone();
-            if desc.len() > settings.output.max_description_length + 3 {
+            if desc.len() > settings.output.descriptionlength + 3 {
                 // if the desc truncated to max length plus three dot characters is
                 //  shorter than the max len then truncate it and add those three dots
-                desc = format!("{}...", &desc[..settings.output.max_description_length]);
+                desc = format!("{}...", &desc[..settings.output.descriptionlength]);
             }
 
             if show_note {
@@ -248,10 +248,10 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     if !raw {
         // by default we edit only the Markdown notation inside the file
         let mut md: String = note.markdown.clone().unwrap_or_default();
-        if md.is_empty() && settings.note.add_description_on_new {
+        if md.is_empty() && settings.note.description {
             md = format!("# {}\n\n", task.description);
         }
-        if settings.note.add_timestamp_on_edit {
+        if settings.note.timestamp {
             let local_timestamp = chrono::offset::Local::now();
             md = format!("{}\n## {}\n\n\n", md, local_timestamp);
         }
@@ -293,7 +293,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
                 .input(Input::from_bytes(md.as_bytes()))
                 .colored_output(settings.output.colors)
                 .grid(settings.output.grid)
-                .line_numbers(settings.output.line_numbers)
+                .line_numbers(settings.output.numbers)
                 .print()
                 .with_context(|| {"while trying to prettyprint markdown"})?;
         }
@@ -304,7 +304,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             .input(Input::from_bytes(note_yaml.as_bytes()))
             .colored_output(settings.output.colors)
             .grid(settings.output.grid)
-            .line_numbers(settings.output.line_numbers)
+            .line_numbers(settings.output.numbers)
             .print()
             .with_context(|| {"while trying to prettyprint yaml"})?;
     }

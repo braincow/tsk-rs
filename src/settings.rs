@@ -8,21 +8,21 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TaskSettings {
-    pub release_hold_on_start: bool,
-    pub enable_start_special_tag: bool,
-    pub show_special_tags_on_list: bool,
-    pub stop_tracking_when_done: bool,
-    pub remove_special_tags_on_done: bool,
+    pub autorelease: bool,
+    pub starttag: bool,
+    pub specialvisible: bool,
+    pub stopondone: bool,
+    pub clearpsecialtags: bool,
 }
 
 impl Default for TaskSettings {
     fn default() -> Self {
         Self {
-            release_hold_on_start: true,
-            enable_start_special_tag: true,
-            show_special_tags_on_list: true,
-            stop_tracking_when_done: true,
-            remove_special_tags_on_done: true,
+            autorelease: true,
+            starttag: true,
+            specialvisible: true,
+            stopondone: true,
+            clearpsecialtags: true,
         }
     }
 }
@@ -32,10 +32,10 @@ impl Default for TaskSettings {
 pub struct OutputSettings {
     pub colors: bool,
     pub grid: bool,
-    pub line_numbers: bool,
-    pub show_namespace: bool,
-    pub max_description_length: usize,
-    pub show_totals: bool,
+    pub numbers: bool,
+    pub namespace: bool,
+    pub descriptionlength: usize,
+    pub totals: bool,
 }
 
 impl Default for OutputSettings {
@@ -43,10 +43,10 @@ impl Default for OutputSettings {
         Self {
             colors: true,
             grid: true,
-            line_numbers: true,
-            show_namespace: true,
-            max_description_length: 30,
-            show_totals: true,
+            numbers: true,
+            namespace: true,
+            descriptionlength: 60,
+            totals: true,
         }
     }
 }
@@ -54,20 +54,20 @@ impl Default for OutputSettings {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NoteSettings {
-    pub add_description_on_new: bool,
-    pub add_timestamp_on_edit: bool,
+    pub description: bool,
+    pub timestamp: bool,
 }
 
 impl Default for NoteSettings {
     fn default() -> Self {
-        Self { add_description_on_new: true, add_timestamp_on_edit: true }
+        Self { description: true, timestamp: true }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DataSettings {
-    pub db_path: String,
+    pub path: String,
     pub rotate: usize,
 }
 
@@ -76,7 +76,7 @@ impl Default for DataSettings {
         let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
 
         Self {
-            db_path: String::from(proj_dirs.data_dir().to_str().unwrap()),
+            path: String::from(proj_dirs.data_dir().to_str().unwrap()),
             rotate: 3,
         }
     }
@@ -117,7 +117,7 @@ impl Settings {
     }
 
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
-        let pathbuf = PathBuf::from(&self.data.db_path).join(&self.namespace);
+        let pathbuf = PathBuf::from(&self.data.path).join(&self.namespace);
         if !pathbuf.is_dir() {
             create_dir_all(&pathbuf).with_context(|| {"while creating data directory"})?;
         }
@@ -149,7 +149,7 @@ pub fn show_config(settings: &Settings) -> Result<()> {
         .input(Input::from_bytes(settings_toml.as_bytes()))
         .colored_output(settings.output.colors)
         .grid(settings.output.grid)
-        .line_numbers(settings.output.line_numbers)
+        .line_numbers(settings.output.numbers)
         .print()
         .with_context(|| {"while trying to prettyprint yaml"})?;
 
