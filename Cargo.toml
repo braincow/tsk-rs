@@ -28,6 +28,6 @@ simple-file-rotation = "0.3.4"
 strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.37"
 toml = "0.5.9"
-uuid = { version = "1.1.2", features = ["v4", "serde"] }
+uuid = { version = "1.2.1", features = ["v4", "serde"] }
 
 #eof
