@@ -30,7 +30,7 @@ enum Commands {
     #[clap(trailing_var_arg = true)]
     New {
         /// Task description string
-        #[clap(multiple = true, value_parser)]
+        #[clap(value_parser)]
         descriptor: Vec<String>,
     },
     /// Show task definition and data
@@ -70,7 +70,7 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// Optional annotation for the job at hand
-        #[clap(multiple = true, value_parser)]
+        #[clap(value_parser)]
         annotation: Vec<String>,
     },
     /// Stop from tracking a task
