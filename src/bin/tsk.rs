@@ -6,14 +6,14 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
-use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config}, metadata::MetadataKeyValuePair};
+use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config, default_config}, metadata::MetadataKeyValuePair};
 use glob::glob;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
     /// Sets a config file
-    #[clap(short, long, value_parser, value_name = "FILE", default_value = "tsk.toml")]
+    #[clap(short, long, value_parser, value_name = "CONFIG", default_value = default_config())]
     config: PathBuf,
 
     /// Sets the namespace of tasks

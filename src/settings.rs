@@ -156,4 +156,15 @@ pub fn show_config(settings: &Settings) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(debug_assertions))]
+pub fn default_config() -> String {
+    let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
+    proj_dirs.config_dir().join("tsk.toml").to_str().unwrap().to_owned()
+}
+
+#[cfg(debug_assertions)]
+pub fn default_config() -> String {
+    "tsk.toml".to_string()
+}
+
 // eof
