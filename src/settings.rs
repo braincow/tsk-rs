@@ -1,9 +1,16 @@
 use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, bail};
 use bat::{PrettyPrinter, Input};
 use config::Config;
 use directories::ProjectDirs;
 use serde::{Serialize, Deserialize};
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum SettingsError {
+    #[error("data directory does not exist, and createdir is set to false")]
+    DataDirectoryDoesNotExist,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -68,6 +75,7 @@ impl Default for NoteSettings {
 #[serde(default)]
 pub struct DataSettings {
     pub path: String,
+    pub createdir: bool,
     pub rotate: usize,
 }
 
@@ -77,6 +85,7 @@ impl Default for DataSettings {
 
         Self {
             path: String::from(proj_dirs.data_dir().to_str().unwrap()),
+            createdir: true,
             rotate: 3,
         }
     }
@@ -118,24 +127,30 @@ impl Settings {
 
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = PathBuf::from(&self.data.path).join(&self.namespace);
-        if !pathbuf.is_dir() {
+        if !pathbuf.is_dir() && self.data.createdir {
             create_dir_all(&pathbuf).with_context(|| {"while creating data directory"})?;
+        } else if !pathbuf.is_dir() && !self.data.createdir {
+            bail!(SettingsError::DataDirectoryDoesNotExist);
         }
         Ok(pathbuf)
     }
 
     pub fn task_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("tasks");
-        if !pathbuf.is_dir() {
+        if !pathbuf.is_dir() && self.data.createdir {
             create_dir_all(&pathbuf).with_context(|| {"while creating tasks data directory"})?;
+        } else if !pathbuf.is_dir() && !self.data.createdir {
+            bail!(SettingsError::DataDirectoryDoesNotExist);
         }
         Ok(pathbuf.to_path_buf())
     }
 
     pub fn note_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("notes");
-        if !pathbuf.is_dir() {
+        if !pathbuf.is_dir() && self.data.createdir {
             create_dir_all(&pathbuf).with_context(|| {"while creating notes data directory"})?;
+        } else if !pathbuf.is_dir() && !self.data.createdir {
+            bail!(SettingsError::DataDirectoryDoesNotExist);
         }
         Ok(pathbuf.to_path_buf())
     }

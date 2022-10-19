@@ -4,6 +4,7 @@
 
 [data]
 path = "test_data"          # if uncommented defaults to users data directory in the os e.g $HOME/.local/share/tsk-rs
+#createdir = true           # if false data directory needs to exists or we exit with an error. if true directory is created
 #rotate = 3                 # keep X occurances of all data files present as backups
 
 #[note]
