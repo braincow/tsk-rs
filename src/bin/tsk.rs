@@ -8,12 +8,13 @@ use hhmmss::Hhmmss;
 use question::{Answer, Question};
 use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config, default_config}, metadata::MetadataKeyValuePair};
 use glob::glob;
+use dotenv::dotenv;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
     /// Sets a config file
-    #[clap(short, long, value_parser, value_name = "CONFIG", default_value = default_config())]
+    #[clap(short, long, value_parser, env = "TSK_CONFIGFILE", value_name = "CONFIGFILE", default_value = default_config())]
     config: PathBuf,
 
     /// Sets the namespace of tasks
@@ -147,6 +148,8 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
+    dotenv().ok();
+
     let cli = Cli::parse();
 
     let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
