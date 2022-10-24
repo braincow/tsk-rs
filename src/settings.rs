@@ -110,17 +110,12 @@ impl Display for Settings {
 
 impl Settings {
     pub fn new(namespace: Option<String>, config_file: &str) -> Result<Self> {
-        let mut settings: Settings = Config::builder()
+        let settings: Settings = Config::builder()
             .set_override_option("namespace", namespace)?
             .add_source(config::File::with_name(config_file).required(false))
             .add_source(config::Environment::with_prefix("TSK").try_parsing(true).separator("_"))
             .build().with_context(|| {"while reading configuration"})?
             .try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
-
-        if settings.namespace.is_empty() {
-            // namespace was not given from env or command line so set it to default
-            settings.namespace = "default".to_string();
-        }
 
         Ok(settings)
     }
