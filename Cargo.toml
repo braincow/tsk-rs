@@ -21,14 +21,16 @@ edit = "0.1.4"
 file-lock = "2.1.6"
 glob = "0.3.0"
 hhmmss = "0.1.0"
+markdown = "1.0.0-alpha.1"
 nom = "7.1.1"
 question = "0.2.2"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_yaml = "0.9.14"
 simple-file-rotation = "0.3.4"
 strum = { version = "0.24.1", features = ["derive"] }
+termtree = "0.4.0"
 thiserror = "1.0.37"
 toml = "0.5.9"
-uuid = { version = "1.2.1", features = ["v4", "serde"] }
+uuid = { version = "1.2.1", features = ["v4", "v5", "serde"] }
 
 #eof

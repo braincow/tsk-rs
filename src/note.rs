@@ -1,10 +1,17 @@
 use std::{collections::BTreeMap, fs::File, path::PathBuf, io::{Read, Write}, fmt::Display};
-
 use file_lock::{FileOptions, FileLock};
 use serde::{Serialize, Deserialize};
 use simple_file_rotation::FileRotation;
 use uuid::Uuid;
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, bail};
+use markdown::{self, mdast::Node};
+use thiserror::Error;
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum NoteError {
+    #[error("error while parsing action points")]
+    ActionPointParseError,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Note {
@@ -76,7 +83,55 @@ impl Note {
         Ok(())
     }
 
+    pub fn get_action_points(&self) -> Result<Option<Vec<ActionPoint>>> {
+        if let Some(markdown_body) = self.markdown.clone() {
+            let parse_result = markdown::to_mdast(&markdown_body, &markdown::ParseOptions::gfm());
+            if parse_result.is_err() {
+                panic!("error on parse")
+            }
+            let root_node = parse_result.unwrap();
+            return parse_md_component(&self.task_id, &root_node);
+        }
+        Ok(None)
+    }
+}
 
+fn parse_md_component(task_id: &Uuid, node: &Node) -> Result<Option<Vec<ActionPoint>>> {
+    let mut found_action_points = vec![];
+
+    if let Some(child_nodes) = node.children() {
+        for child_node in child_nodes {
+            found_action_points.append(&mut parse_md_component(task_id, child_node)?.unwrap_or_default());
+        }
+    }
+
+    if let Node::ListItem(list_node) = node {
+        if list_node.checked.is_some() {
+            let action_description_paragraphs = list_node.children.clone().pop().unwrap();
+            let action_description = match action_description_paragraphs.children().unwrap().to_owned().pop().unwrap() {
+                Node::Text(item_text) => item_text.value,
+                _ => bail!(NoteError::ActionPointParseError)
+            };
+            found_action_points.push(ActionPoint{
+                id: Uuid::new_v5(&Uuid::NAMESPACE_URL, format!("tsk-rs://{}/{}", task_id, action_description).as_bytes()),
+                description: action_description,
+                checked: list_node.checked.unwrap(),
+            });
+        }
+    }
+
+    if found_action_points.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(found_action_points))
+    }
+}
+
+#[derive(Debug)]
+pub struct ActionPoint {
+    pub id: Uuid,
+    pub description: String,
+    pub checked: bool,
 }
 
 #[cfg(test)]
