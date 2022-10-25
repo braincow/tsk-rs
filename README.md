@@ -27,3 +27,10 @@ Not all or any descriptors need to be fleshed and task is created still with jus
 ## tsknt
 
 An utility to add Markdown formatted notebook to your task. When leaving a task to work on another just leave yourself a note on what you did so it becomes a tad easier to pickup from where you left off.
+
+To assist in organizing your work it is possible to write todo lists into the notes by using Markdown Github style of extensions, like this:
+
+- [ ] this action point has not been completed
+- [x] this action however has been
+
+These action points can then be queried with `tsknt action-points` subcommand.
