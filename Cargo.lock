@@ -952,9 +952,9 @@ dependencies = [
 
 [[package]]
 name = "markdown"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e11ee635995dfb3bc1101e6d7edf40be3ea28a61de5f293752c4aa8e25a3b69"
+checksum = "e34622c2cebdc1359dfc8bbdfab645d67c8b2e34f4c74de30ed9581d8f93cf3d"
 dependencies = [
  "log",
  "regex",
