@@ -192,9 +192,7 @@ fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool,
 
             if show_note {
                 if let Some(aps) = aps {
-                    if aps.is_empty() {
-                        continue;
-                    }
+                    let mut ap_added_to_leaf = false;
                     let mut note_leaf = Tree::new(format!("🗏 {} | {}", desc, note.task_id));
                     for ap in aps {
                         if *done || !ap.checked {
@@ -205,10 +203,13 @@ fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool,
                             };
                             let action_leaf = Tree::new(format!("{} {}", mark, ap.description));
                             note_leaf.push(action_leaf);
+                            ap_added_to_leaf = true;
                         }
                     }
-                    tree_root.push(note_leaf);
-                    tree_populated = true;
+                    if ap_added_to_leaf {
+                        tree_root.push(note_leaf);
+                        tree_populated = true;    
+                    }
                 }
             }
         } else if *orphaned {
