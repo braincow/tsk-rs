@@ -6,6 +6,8 @@
 path = "test_data"          # if uncommented defaults to users data directory in the os e.g $HOME/.local/share/tsk-rs
 #createdir = true           # if false data directory needs to exists or we exit with an error. if true directory is created
 #rotate = 3                 # keep X occurances of all data files present as backups
+#archivebackups = false     # when pruning data files archive the backup files
+#delbackups = true          # when pruning data files delete backup files automatically
 
 #[note]
 #description = true         # if false does not add '# description' header to Markdown on edit

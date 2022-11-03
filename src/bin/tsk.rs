@@ -1,4 +1,4 @@
-use std::{path::PathBuf, fs::remove_file};
+use std::{path::PathBuf, fs::{remove_file, File}, time::{SystemTime, UNIX_EPOCH}};
 use anyhow::{Result, Context};
 use bat::{PrettyPrinter, Input};
 use chrono::{Local, NaiveDateTime};
@@ -6,6 +6,7 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
+use tar::Builder;
 use tsk_rs::{task::{Task, TaskPriority}, settings::{Settings, show_config, default_config}, metadata::MetadataKeyValuePair};
 use glob::glob;
 use dotenv::dotenv;
@@ -145,6 +146,8 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
     },
+    /// Prune task data files
+    Prune,
 }
 
 fn main() -> Result<()> {
@@ -160,6 +163,7 @@ fn main() -> Result<()> {
     }
 
     match &cli.command {
+        Some(Commands::Prune) => prune_tasks(&settings),
         Some(Commands::Set { id, priority, due_date,
                 tag, project, metadata }) => {
             set_characteristic(id, priority, due_date, tag, project, metadata, &settings)
@@ -203,6 +207,56 @@ fn main() -> Result<()> {
         Some(Commands::Next { id}) => set_characteristic(id, &None, &None, &Some(vec!["next".to_string()]), &None, &None, &settings),
         None => {list_tasks(&None, &false, &settings)}
     }
+}
+
+fn prune_tasks(settings: &Settings) -> Result<()> {
+    let task_pathbuf: PathBuf = settings.task_db_pathbuf().with_context(|| {"invalid data directory path configured"})?.join("*.yaml");
+
+    let mut files_to_archive: Vec<PathBuf> = vec![];
+    let mut files_to_delete: Vec<PathBuf> = vec![];
+    for task_filename in (glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})?).flatten() {
+        if task_filename.file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
+            // we found a backup file
+            if settings.data.archivebackups {
+                files_to_archive.push(task_filename.clone());
+            }
+            if settings.data.delbackups {
+                files_to_delete.push(task_filename);
+            }
+            continue;
+        }
+        
+        let task = Task::load_yaml_file_from(&task_filename).with_context(|| {"while loading task from yaml file"})?;
+        if task.done {
+            // task is done so it should be archived and deleted
+            files_to_archive.push(task_filename.clone());
+            files_to_delete.push(task_filename);
+        }
+    }
+
+    if !files_to_archive.is_empty() {
+        let start = SystemTime::now();
+        let since_the_epoch = start.duration_since(UNIX_EPOCH)?;
+        // there are files to archive
+        let tar_filename = settings.archive_pathbuf()?.join(PathBuf::from(format!("{}.tar", since_the_epoch.as_secs())));
+        let file = File::create(tar_filename.clone())?;
+        let mut arch = Builder::new(file);
+        println!("Created Tar archive '{}'", tar_filename.file_name().unwrap().to_str().unwrap());
+        for file_to_archive in files_to_archive {
+            // add to tar archive
+            arch.append_path(file_to_archive.clone()).with_context(|| {"while adding task data file to archive"})?;
+            println!("Task data file '{}' was appended to the Tar archive", file_to_archive.file_name().unwrap().to_str().unwrap());
+        }
+    }
+
+    if !files_to_delete.is_empty() {
+        for file_to_delete in files_to_delete {
+            println!("Removing task data file '{}'", file_to_delete.clone().file_name().unwrap().to_str().unwrap());
+            remove_file(file_to_delete).with_context(|| {"while removing file during pruning"})?;
+        }
+    }
+
+    Ok(())
 }
 
 fn new_task(descriptor: String, settings: &Settings) -> Result<()> {

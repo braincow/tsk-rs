@@ -77,6 +77,8 @@ pub struct DataSettings {
     pub path: String,
     pub createdir: bool,
     pub rotate: usize,
+    pub archivebackups: bool,
+    pub delbackups: bool,
 }
 
 impl Default for DataSettings {
@@ -87,6 +89,8 @@ impl Default for DataSettings {
             path: String::from(proj_dirs.data_dir().to_str().unwrap()),
             createdir: true,
             rotate: 3,
+            archivebackups: false,
+            delbackups: true,
         }
     }
 }
@@ -144,6 +148,16 @@ impl Settings {
         let pathbuf = &self.db_pathbuf()?.join("notes");
         if !pathbuf.is_dir() && self.data.createdir {
             create_dir_all(&pathbuf).with_context(|| {"while creating notes data directory"})?;
+        } else if !pathbuf.is_dir() && !self.data.createdir {
+            bail!(SettingsError::DataDirectoryDoesNotExist);
+        }
+        Ok(pathbuf.to_path_buf())
+    }
+
+    pub fn archive_pathbuf(&self) -> Result<PathBuf> {
+        let pathbuf = &self.db_pathbuf()?.join("archive");
+        if !pathbuf.is_dir() && self.data.createdir {
+            create_dir_all(&pathbuf).with_context(|| {"while creating archive data directory"})?;
         } else if !pathbuf.is_dir() && !self.data.createdir {
             bail!(SettingsError::DataDirectoryDoesNotExist);
         }
