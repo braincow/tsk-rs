@@ -3,7 +3,7 @@ use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
 use question::{Question, Answer};
-use tsk_rs::{settings::{Settings, show_config, default_config}, task::{Task, TaskError}, note::Note, metadata::MetadataKeyValuePair};
+use tsk_rs::{settings::{Settings, show_config, default_config}, task::{Task, TaskError, load_task}, note::{Note, load_note, save_note, note_pathbuf_from_id, note_pathbuf_from_note, list_notes}, metadata::MetadataKeyValuePair};
 use glob::glob;
 use bat::{Input, PrettyPrinter};
 use dotenv::dotenv;
@@ -124,7 +124,7 @@ fn main() -> Result<()> {
             show_note(id, raw, &settings)
         },
         Some(Commands::List {id, orphaned, completed }) => {
-            list_note(id, orphaned, completed, &settings)
+            cli_list_notes(id, orphaned, completed, &settings)
         },
         Some(Commands::Delete { id, force }) => {
             delete_note(id, force, &settings)
@@ -133,15 +133,15 @@ fn main() -> Result<()> {
             show_config(&settings)
         },
         Some(Commands::Set { id, metadata }) => {
-            set_characteristic(id, metadata, &settings)
+            cli_set_characteristic(id, metadata, &settings)
         },
         Some(Commands::Unset { id, metadata }) => {
-            unset_characteristic(id, metadata, &settings)
+            cli_unset_characteristic(id, metadata, &settings)
         },
         Some(Commands::ActionPoints { id, orphaned, completed, done }) => {
             list_aps(id, orphaned, completed, done, &settings)
         },
-        None => { list_note(&None, &false, &false, &settings) }
+        None => { cli_list_notes(&None, &false, &false, &settings) }
     }
 }
 
@@ -244,61 +244,28 @@ fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool,
     Ok(())
 }
 
-fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<()> {
+fn cli_list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<()> {
     let mut note_cells = vec![];
 
-    let mut note_pathbuf: PathBuf = settings.note_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
-    if id.is_some() {
-        note_pathbuf = note_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
-    } else {
-        note_pathbuf = note_pathbuf.join("*.yaml");
-    }
+    let found_notes = list_notes(id, orphaned, completed, settings)?;
+    let found_notes_count: usize = found_notes.capacity();
 
-    let mut found_notes_count: usize = 0;
     let mut listed_notes_count: usize = 0;
-    for note_filename in glob(note_pathbuf.to_str().unwrap()).with_context(|| {"while traversing note data directory files"})? {
-        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
-        if note_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
-            continue;
-        }
-        found_notes_count += 1;
-
-        let note = Note::load_yaml_file_from(&note_filename?).with_context(|| {"while loading note from disk"})?;
-
-        let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", note.task_id)));
-        let mut task: Option<Task> = None;
-        if task_pathbuf.is_file() {
-            task = Some(Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task from yaml file"})?);
-        }
-
-        if let Some(task) = task {
-            let mut show_note = false;
-            // there is a task file
-            if task.done && *completed {
-                // .. but the task is completed. however completed is true so we show it
-                show_note = true;
-            }
-            if !task.done {
-                // .. task is not done so show it
-                show_note = true;
-            }
-
+    for found_note in found_notes {
+        if let Some(task) = found_note.task {
             let mut desc = task.description.clone();
             if desc.len() > settings.output.descriptionlength + 3 {
                 // if the desc truncated to max length plus three dot characters is
                 //  shorter than the max len then truncate it and add those three dots
                 desc = format!("{}...", &desc[..settings.output.descriptionlength]);
             }
-
-            if show_note {
-                listed_notes_count += 1;
-                note_cells.push(vec![note.task_id.cell(), desc.cell(),
-                    task.project.unwrap_or_else(|| {"".to_string()}).cell(),]);
-            }
+            listed_notes_count += 1;
+            note_cells.push(vec![task.id.cell(), desc.cell(),
+                task.project.unwrap_or_else(|| {"".to_string()}).cell(),]);
         } else if *orphaned {
             // there is no task file anymore, and orphaned is true so we add it
             note_cells.push(vec![
-                note.task_id.cell(),
+                found_note.note.task_id.cell(),
                 "[orphaned]".to_string().cell(),
                 "[orphaned]".to_string().cell(),
                 "[orphaned]".to_string().cell(),
@@ -309,7 +276,7 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
     if !note_cells.is_empty() {
         let tasks_table = note_cells.table()
             .title(
-                vec!["Note ID".cell().bold(true).underline(true),
+                vec!["Note/Task ID".cell().bold(true).underline(true),
                 "Description".cell().bold(true).underline(true),
                 "Project".cell().bold(true).underline(true)]) // headers of the table
             .border(Border::builder().build())
@@ -325,10 +292,9 @@ fn list_note(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &
 }
 
 fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
-    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
+    let note = load_note(id, settings)?;
+    let note_pathbuf = note_pathbuf_from_note(&note, settings)?;
 
-    let note = Note::load_yaml_file_from(&note_pathbuf)?;
-    
     let answer = if !force {
         Question::new("Really delete this note?")
         .default(Answer::NO)
@@ -341,29 +307,24 @@ fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
     if answer == Answer::YES {
         remove_file(note_pathbuf).with_context(|| {"while removing note file"})?;
         println!("Note for '{}' now deleted permanently.", note.task_id);    
-    } else {
-        println!("Cancelled: Note for '{}' not deleted.", note.task_id);    
     }
 
     Ok(())
 }
 
 fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
-    let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
-    let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for reading"})?;
-
+    let task = load_task(id, settings)?;
     if task.done {
         bail!(TaskError::TaskAlreadyCompleted);
     }
 
     let mut modified = false;
-    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
-    let mut note: Note;
+    let mut note;
+    let note_pathbuf = note_pathbuf_from_id(id, settings)?;
     if !note_pathbuf.is_file() {
         note = Note::new(&task.id);
-        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving new task note file"})?;
     } else {
-        note = Note::load_yaml_file_from(&note_pathbuf)?;
+        note = load_note(id, settings)?;
     }
 
     if !raw {
@@ -393,18 +354,15 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     }
 
     if modified {
-        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving modified note yaml file"})?;
+        save_note(&mut note, settings).with_context(|| {"while saving note yaml file"})?;
         println!("Note for '{}' was updated.", note.task_id);
-    } else {
-        println!("No updates made to note for '{}'.", note.task_id);
     }
 
     Ok(())
 }
 
 fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
-    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
-    let note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
+    let note = load_note(id, settings)?;
 
     if !raw {
         // by default, only show the markdown inside the note yaml
@@ -433,56 +391,28 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-fn set_characteristic(id: &String, metadata: &Option<Vec<MetadataKeyValuePair>>, settings: &Settings) -> Result<()> {
-    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
-    let mut note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
-
-    let mut modified = false;
-
-    if let Some(metadata) = metadata {
-        for new_metadata in metadata {
-            let old = note.metadata.insert(new_metadata.key.clone(), new_metadata.value.clone());
-            modified = true;
-            if old.is_some() {
-                println!("Metadata '{}' = '{}' updated", new_metadata.key, new_metadata.value);
-            } else {
-                println!("Metadata '{}' = '{}' added", new_metadata.key, new_metadata.value);
-            }
-        }
-    }
+fn cli_set_characteristic(id: &String, metadata: &Option<Vec<MetadataKeyValuePair>>, settings: &Settings) -> Result<()> {
+    let mut note = load_note(id, settings)?;
+    let modified = note.set_characteristic(metadata);
 
     if modified {
-        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving note yaml file"})?;
+        save_note(&mut note, settings)?;
         println!("Modifications saved for note '{}'", note.task_id);
     }
 
     Ok(())
 }
 
-fn unset_characteristic(id: &String, metadata: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
-    let note_pathbuf = settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id)));
-    let mut note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note from disk"})?;
-
-    let mut modified = false;
-
-    if let Some(metadata) = metadata {
-        for remove_metadata in metadata {
-            let old = note.metadata.remove(remove_metadata);
-            if let Some(old) = old {
-                println!("Metadata '{}' = '{}' removed", remove_metadata, old);
-                modified = true;
-            }
-        }
-    }
+fn cli_unset_characteristic(id: &String, metadata: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+    let mut note = load_note(id, settings)?;
+    let modified = note.unset_characteristic(metadata);
 
     if modified {
-        note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving note yaml file"})?;
+        save_note(&mut note, settings)?;
         println!("Modifications saved for note '{}'", note.task_id);
     }
 
     Ok(())
 }
-
-
 
 // eof

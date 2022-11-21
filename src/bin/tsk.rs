@@ -334,8 +334,6 @@ fn edit_task(id: &String, settings: &Settings) -> Result<()> {
     if modified {
         save_task(&mut task, settings).with_context(|| {"while saving modified task yaml file"})?;
         println!("Task '{}' was updated.", task.id);
-    } else {
-        println!("No updates made to task '{}'.", task.id);
     }
 
     Ok(())
@@ -375,12 +373,10 @@ fn cli_set_characteristic(id: &String, priority: &Option<TaskPriority>, due_date
     tags: &Option<Vec<String>>, project: &Option<String>, metadata: &Option<Vec<MetadataKeyValuePair>>, settings: &Settings) -> Result<()> {
     let mut task = load_task(id, settings)?;
     let modified = task.set_characteristic(priority, due_date, tags, project, metadata);
-    save_task(&mut task, settings)?;
     
     if modified {
+        save_task(&mut task, settings)?;
         println!("Task characteristics modified for '{}'", task.id);
-    } else {
-        println!("No changes to task characteristics.");
     }
     
     Ok(())
@@ -390,12 +386,10 @@ fn cli_unset_characteristic(id: &String, priority: &bool, due_date: &bool,
     tags: &Option<Vec<String>>, project: &bool, metadata: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
     let mut task = load_task(id, settings)?;
     let modified = task.unset_characteristic(priority, due_date, tags, project, metadata);
-    save_task(&mut task, settings)?;
 
     if modified {
+        save_task(&mut task, settings)?;
         println!("Task characteristics modified for '{}'", task.id);
-    } else {
-        println!("No changes to task characteristics.");
     }
 
     Ok(())
