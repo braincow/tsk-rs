@@ -423,7 +423,6 @@ impl Task {
             for remove_tag in tags {
                 if let Some(index) = task_tags.iter().position(|r| r == remove_tag) {
                     task_tags.swap_remove(index);
-                    println!("Tag '{}' removed", remove_tag);
                     tags_modified = true;
                 }
             }
