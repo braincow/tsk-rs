@@ -191,6 +191,20 @@ pub struct FoundNote {
     pub task: Option<Task>,
 }
 
+pub fn amount_of_notes(settings: &Settings, include_backups: bool) -> Result<usize> {
+    let mut notes: usize = 0;
+    let task_pathbuf: PathBuf = note_pathbuf_from_id(&"*".to_string(), settings)?;
+    for note_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if note_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" && 
+            !include_backups {
+            continue;
+        }
+        notes += 1;
+    }
+    Ok(notes)
+}
+
 pub fn list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<Vec<FoundNote>> {
     let note_pathbuf: PathBuf = if id.is_some() {
         note_pathbuf_from_id(&format!("*{}*", id.as_ref().unwrap()), settings)?

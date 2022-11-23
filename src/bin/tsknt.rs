@@ -3,7 +3,7 @@ use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
 use question::{Question, Answer};
-use tsk_rs::{settings::{Settings, show_config, default_config}, task::{TaskError, load_task}, note::{Note, load_note, save_note, note_pathbuf_from_id, note_pathbuf_from_note, list_notes}, metadata::MetadataKeyValuePair};
+use tsk_rs::{settings::{Settings, show_config, default_config}, task::{TaskError, load_task}, note::{Note, load_note, save_note, note_pathbuf_from_id, note_pathbuf_from_note, list_notes, amount_of_notes}, metadata::MetadataKeyValuePair};
 use bat::{Input, PrettyPrinter};
 use dotenv::dotenv;
 use termtree::Tree;
@@ -205,7 +205,7 @@ fn cli_list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settin
     let mut note_cells = vec![];
 
     let found_notes = list_notes(id, orphaned, completed, settings)?;
-    let found_notes_count: usize = found_notes.len();
+    let found_notes_count: usize = amount_of_notes(settings, false)?;
 
     let mut listed_notes_count: usize = 0;
     for found_note in found_notes {

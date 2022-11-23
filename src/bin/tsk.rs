@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, print_stdout, format::{Border, Separator}, Color};
 use hhmmss::Hhmmss;
 use question::{Answer, Question};
-use tsk_rs::{task::{Task, TaskPriority, new_task, start_task, load_task, save_task, stop_task, task_pathbuf_from_task, list_tasks}, settings::{Settings, show_config, default_config}, metadata::MetadataKeyValuePair};
+use tsk_rs::{task::{Task, TaskPriority, new_task, start_task, load_task, save_task, stop_task, task_pathbuf_from_task, list_tasks, amount_of_tasks}, settings::{Settings, show_config, default_config}, metadata::MetadataKeyValuePair};
 use dotenv::dotenv;
 
 #[derive(Parser)]
@@ -212,7 +212,7 @@ fn cli_new_task(descriptor: String, settings: &Settings) -> Result<()> {
 
 fn cli_list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
     let found_tasks = list_tasks(search, include_done, settings)?;
-    let total_tasks_count: usize = found_tasks.len();
+    let total_tasks_count: usize = amount_of_tasks(settings, false)?;
 
     let mut task_cells = vec![];
     let mut found_tasks_count: usize = 0;

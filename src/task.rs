@@ -585,6 +585,20 @@ pub fn complete_task(task: &mut Task, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
+pub fn amount_of_tasks(settings: &Settings, include_backups: bool) -> Result<usize> {
+    let mut tasks: usize = 0;
+    let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
+    for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" && 
+            !include_backups {
+            continue;
+        }
+        tasks += 1;
+    }
+    Ok(tasks)
+}
+
 pub fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<Vec<Task>> {
     let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
 
