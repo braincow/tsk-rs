@@ -6,6 +6,9 @@ use uuid::Uuid;
 use anyhow::{Result, Context, bail};
 use markdown::{self, mdast::Node};
 use thiserror::Error;
+use glob::glob;
+
+use crate::{settings::Settings, metadata::MetadataKeyValuePair, task::{Task, task_pathbuf_from_id, load_task}};
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum NoteError {
@@ -94,6 +97,35 @@ impl Note {
         }
         Ok(None)
     }
+
+    pub fn set_characteristic(&mut self, metadata: &Option<Vec<MetadataKeyValuePair>>) -> bool {   
+        let mut modified = false;
+    
+        if let Some(metadata) = metadata {
+            for new_metadata in metadata {
+                self.metadata.insert(new_metadata.key.clone(), new_metadata.value.clone());
+                modified = true;
+            }
+        }
+
+        modified
+    }
+
+    pub fn unset_characteristic(&mut self, metadata: &Option<Vec<String>>) -> bool {
+        let mut modified = false;
+    
+        if let Some(metadata) = metadata {
+            for remove_metadata in metadata {
+                let old = self.metadata.remove(remove_metadata);
+                if old.is_some() {
+                    modified = true;
+                }
+            }
+        }    
+  
+        modified
+    }
+
 }
 
 fn parse_md_component(task_id: &Uuid, node: &Node) -> Result<Option<Vec<ActionPoint>>> {
@@ -133,6 +165,96 @@ pub struct ActionPoint {
     pub description: String,
     pub checked: bool,
 }
+
+pub fn note_pathbuf_from_id(id: &String, settings: &Settings) -> Result<PathBuf> {
+    Ok(settings.note_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id))))
+}
+
+pub fn note_pathbuf_from_note(note: &Note, settings: &Settings) -> Result<PathBuf> {
+    note_pathbuf_from_id(&note.task_id.to_string(), settings)
+}
+
+pub fn load_note(id: &String, settings: &Settings) -> Result<Note> {
+    let note_pathbuf = note_pathbuf_from_id(id, settings).with_context(|| {"while building path of the file"})?;
+    let note = Note::load_yaml_file_from(&note_pathbuf).with_context(|| {"while loading note yaml file for editing"})?;
+    Ok(note)
+}
+
+pub fn save_note(note: &mut Note, settings: &Settings) -> Result<()> {
+    let note_pathbuf = note_pathbuf_from_note(note, settings)?;
+    note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate).with_context(|| {"while saving note yaml file"})?;
+    Ok(())
+}
+
+pub struct FoundNote {
+    pub note: Note,
+    pub task: Option<Task>,
+}
+
+pub fn amount_of_notes(settings: &Settings, include_backups: bool) -> Result<usize> {
+    let mut notes: usize = 0;
+    let task_pathbuf: PathBuf = note_pathbuf_from_id(&"*".to_string(), settings)?;
+    for note_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if note_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" && 
+            !include_backups {
+            continue;
+        }
+        notes += 1;
+    }
+    Ok(notes)
+}
+
+pub fn list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<Vec<FoundNote>> {
+    let note_pathbuf: PathBuf = if id.is_some() {
+        note_pathbuf_from_id(&format!("*{}*", id.as_ref().unwrap()), settings)?
+    } else {
+        note_pathbuf_from_id(&"*".to_string(), settings)?
+    };
+
+    let mut found_notes: Vec<FoundNote> = vec![];
+
+    for note_filename in glob(note_pathbuf.to_str().unwrap()).with_context(|| {"while traversing note data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if note_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
+            continue;
+        }
+
+        let note = Note::load_yaml_file_from(&note_filename?).with_context(|| {"while loading note from disk"})?;
+
+        let task_pathbuf = task_pathbuf_from_id(&note.task_id.to_string(), settings)?;
+        let mut task: Option<Task> = None;
+        if task_pathbuf.is_file() {
+            task = Some(load_task(&note.task_id.to_string(), settings)?);
+        }
+
+        if let Some(task) = task {
+            let mut show_note = false;
+            // there is a task file
+            if task.done && *completed {
+                // .. but the task is completed. however completed is true so we show it
+                show_note = true;
+            }
+            if !task.done {
+                // .. task is not done so show it
+                show_note = true;
+            }
+
+            if show_note {
+                found_notes.push(FoundNote {
+                    note,
+                    task: Some(task),
+                });
+            }
+        } else if *orphaned {
+            // there is no task file anymore, and orphaned is true so we add it anyway to the return value
+            found_notes.push(FoundNote { note, task: None });
+        }
+    }
+
+    Ok(found_notes)
+}
+
 
 #[cfg(test)]
 mod tests {

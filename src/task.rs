@@ -1,6 +1,6 @@
-use crate::parser::task_lexicon::{Expression, parse_task};
+use crate::{parser::task_lexicon::{Expression, parse_task}, settings::Settings, metadata::MetadataKeyValuePair};
 use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File, fmt::Display, str::FromStr};
-use chrono::{DateTime, Duration, Local};
+use chrono::{DateTime, Duration, Local, NaiveDateTime};
 use file_lock::{FileLock, FileOptions};
 use serde::{Serialize, Deserialize};
 use simple_file_rotation::FileRotation;
@@ -8,6 +8,7 @@ use strum::{IntoStaticStr, EnumString};
 use thiserror::Error;
 use anyhow::{bail, Result, Context};
 use uuid::Uuid;
+use glob::glob;
 
 #[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone, Eq, PartialEq, Debug)]
 pub enum TaskPriority {
@@ -392,6 +393,240 @@ impl Task {
         Ok(score)
     }
 
+    pub fn unset_characteristic(&mut self, priority: &bool, due_date: &bool,
+        tags: &Option<Vec<String>>, project: &bool, metadata: &Option<Vec<String>>) -> bool {
+
+        let mut modified = false;
+
+        if *priority {
+            let old_prio = self.metadata.remove("tsk-rs-task-priority");
+            if old_prio.is_some() {
+                modified = true;
+            }
+        }
+    
+        if *due_date {
+            let old_duedate = self.metadata.remove("tsk-rs-task-due-time");
+            if old_duedate.is_some() {
+                modified = true;
+            }
+        }
+    
+        if let Some(tags) = tags {
+            let mut task_tags = if let Some(task_tags) = self.tags.clone() {
+                task_tags
+            } else {
+                vec![]
+            };
+    
+            let mut tags_modified = false;
+            for remove_tag in tags {
+                if let Some(index) = task_tags.iter().position(|r| r == remove_tag) {
+                    task_tags.swap_remove(index);
+                    tags_modified = true;
+                }
+            }
+    
+            if tags_modified {
+                self.tags = Some(task_tags);
+                modified = true;
+            }
+        }
+    
+        if *project {
+            self.project = None;
+            modified = true;
+        }
+    
+        if let Some(metadata) = metadata {
+            for remove_metadata in metadata {
+                let old = self.metadata.remove(remove_metadata);
+                if old.is_some() {
+                    modified = true;
+                }
+            }
+        }
+
+        modified
+    }
+
+    pub fn set_characteristic(&mut self, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>,
+        tags: &Option<Vec<String>>, project: &Option<String>, metadata: &Option<Vec<MetadataKeyValuePair>>) -> bool {
+        let mut modified = false;
+
+        if let Some(priority) = priority {
+            let prio_str: &str = priority.into();
+            self.metadata.insert("tsk-rs-task-priority".to_string(), prio_str.to_string());
+
+            modified = true;
+        }
+
+        if let Some(due_date) = due_date {
+            self.metadata.insert("tsk-rs-task-due-time".to_string(), due_date.and_local_timezone(Local).unwrap().to_rfc3339());
+            modified = true;
+        }
+
+        if let Some(tags) = tags {
+            let mut task_tags = if let Some(task_tags) = self.tags.clone() {
+                task_tags
+            } else {
+                vec![]
+            };
+
+            let mut tags_modified = false;
+            for new_tag in tags {
+                if !task_tags.contains(new_tag) {
+                    task_tags.push(new_tag.to_string());
+                    tags_modified = true;
+                }
+            }
+
+            if tags_modified {
+                self.tags = Some(task_tags);
+                modified = true;
+            }
+        }
+
+        if project.is_some() {
+            self.project = project.clone();
+            modified = true;
+        }
+
+        if let Some(metadata) = metadata {
+            for new_metadata in metadata {
+                self.metadata.insert(new_metadata.key.clone(), new_metadata.value.clone());
+                modified = true;
+            }
+        }
+
+        modified
+
+    }
+
+}
+
+pub fn task_pathbuf_from_id(id: &String, settings: &Settings) -> Result<PathBuf> {
+    Ok(settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id))))
+}
+
+pub fn task_pathbuf_from_task(task: &Task, settings: &Settings) -> Result<PathBuf> {
+    task_pathbuf_from_id(&task.id.to_string(), settings)
+}
+
+pub fn load_task(id: &String, settings: &Settings) -> Result<Task> {
+    let task_pathbuf = task_pathbuf_from_id(id, settings).with_context(|| {"while building path of the file"})?;
+    let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    Ok(task)
+}
+
+pub fn save_task(task: &mut Task, settings: &Settings) -> Result<()> {
+    let task_pathbuf = task_pathbuf_from_task(task, settings)?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+    Ok(())
+}
+
+pub fn new_task(descriptor: String, settings: &Settings) -> Result<Task> {
+    let mut task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
+
+    // once the task file has been created check for special tags that should take immediate action
+    if let Some(tags) = task.tags.clone() {
+        if tags.contains(&"start".to_string()) && settings.task.starttag {
+            start_task(&task.id.to_string(), &Some("started on creation".to_string()), settings)?;
+        }
+    }
+
+    save_task(&mut task, settings).with_context(|| {"while saving new task"})?;
+    Ok(task)
+}
+
+pub fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> Result<Task> {
+    let mut task = load_task(id, settings)?;
+    task.start(annotation).with_context(|| {"while starting time tracking"})?;
+
+    // if special tag (hold) is present then release the hold by modifying tags.
+    if settings.task.autorelease {
+        task.unset_characteristic(&false, &false, &Some(vec!["hold".to_string()]),
+            &false, &None);
+    }
+
+    save_task(&mut task, settings).with_context(|| {"while saving started task"})?;
+    Ok(task)
+}
+
+pub fn stop_task(id: &String, done: &bool, settings: &Settings) -> Result<Task> {
+    let mut task = load_task(id, settings)?;
+    task.stop().with_context(|| {"while stopping time tracking"})?;
+
+    if *done {
+        complete_task(&mut task, settings)?;
+    }
+
+    save_task(&mut task, settings).with_context(|| {"while saving stopped task"})?;
+
+    Ok(task)
+}
+
+pub fn complete_task(task: &mut Task, settings: &Settings) -> Result<()> {
+    if task.is_running() && settings.task.stopondone {
+        // task is running, so first stop it
+        stop_task(&task.id.to_string(), &false, settings)?;
+    }
+
+    // remove special tags when task is marked completed
+    if settings.task.clearpsecialtags {
+        task.unset_characteristic(&false, &false, 
+            &Some(vec!["start".to_string(), "next".to_string(), "hold".to_string()]),
+            &false, &None);
+    }
+
+    task.mark_as_completed().with_context(|| {"while completing task"})?;
+    save_task(task, settings)?;
+
+    Ok(())
+}
+
+pub fn amount_of_tasks(settings: &Settings, include_backups: bool) -> Result<usize> {
+    let mut tasks: usize = 0;
+    let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
+    for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" && 
+            !include_backups {
+            continue;
+        }
+        tasks += 1;
+    }
+    Ok(tasks)
+}
+
+pub fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<Vec<Task>> {
+    let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
+
+    let mut found_tasks: Vec<Task> = vec![];
+    for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
+        if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
+            continue;
+        }
+
+        let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
+
+        if !task.done || *include_done {
+            if let Some(search) = search {
+                if task.loose_match(search) {
+                    // a part of key information matches search term, so the task is included
+                    found_tasks.push(task);
+                }
+            } else {
+                // search term is empty so everything matches
+                found_tasks.push(task);
+            }
+        }
+    }
+    found_tasks.sort_by_key(|k| k.score().unwrap());
+    found_tasks.reverse();
+
+    Ok(found_tasks)
 }
 
 #[cfg(test)]
