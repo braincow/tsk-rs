@@ -212,7 +212,7 @@ fn cli_new_task(descriptor: String, settings: &Settings) -> Result<()> {
 
 fn cli_list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<()> {
     let found_tasks = list_tasks(search, include_done, settings)?;
-    let total_tasks_count: usize = found_tasks.capacity();
+    let total_tasks_count: usize = found_tasks.len();
 
     let mut task_cells = vec![];
     let mut found_tasks_count: usize = 0;

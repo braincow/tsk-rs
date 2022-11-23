@@ -205,7 +205,7 @@ fn cli_list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settin
     let mut note_cells = vec![];
 
     let found_notes = list_notes(id, orphaned, completed, settings)?;
-    let found_notes_count: usize = found_notes.capacity();
+    let found_notes_count: usize = found_notes.len();
 
     let mut listed_notes_count: usize = 0;
     for found_note in found_notes {
