@@ -3,8 +3,7 @@ use anyhow::{Result, Context, bail};
 use clap::{Parser, Subcommand};
 use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
 use question::{Question, Answer};
-use tsk_rs::{settings::{Settings, show_config, default_config}, task::{Task, TaskError, load_task}, note::{Note, load_note, save_note, note_pathbuf_from_id, note_pathbuf_from_note, list_notes}, metadata::MetadataKeyValuePair};
-use glob::glob;
+use tsk_rs::{settings::{Settings, show_config, default_config}, task::{TaskError, load_task}, note::{Note, load_note, save_note, note_pathbuf_from_id, note_pathbuf_from_note, list_notes}, metadata::MetadataKeyValuePair};
 use bat::{Input, PrettyPrinter};
 use dotenv::dotenv;
 use termtree::Tree;
@@ -146,95 +145,53 @@ fn main() -> Result<()> {
 }
 
 fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool, settings: &Settings) -> Result<()> {
-    let mut note_pathbuf: PathBuf = settings.note_db_pathbuf().with_context(|| {"invalid data directory path configured"})?;
-    if id.is_some() {
-        note_pathbuf = note_pathbuf.join(format!("*{}*.yaml", id.as_ref().unwrap()));
-    } else {
-        note_pathbuf = note_pathbuf.join("*.yaml");
-    }
+    let found_notes = list_notes(id, orphaned, completed, settings)?;
 
     let mut tree_root = Tree::new("🗐 Task notes".to_string());
     let mut tree_populated = false;
 
-    for note_filename in glob(note_pathbuf.to_str().unwrap()).with_context(|| {"while traversing note data directory files"})? {
-        // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
-        if note_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
-            continue;
-        }
-
-        let note = Note::load_yaml_file_from(&note_filename?).with_context(|| {"while loading note from disk"})?;
-        let aps = note.get_action_points()?;
-
-        let task_pathbuf = settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", note.task_id)));
-        let mut task: Option<Task> = None;
-        if task_pathbuf.is_file() {
-            task = Some(Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task from yaml file"})?);
-        }
-
-        if let Some(task) = task {
-            let mut show_note = false;
-            // there is a task file
-            if task.done && *completed {
-                // .. but the task is completed. however completed is true so we show it
-                show_note = true;
-            }
-            if !task.done {
-                // .. task is not done so show it
-                show_note = true;
-            }
-
-            let mut desc = task.description.clone();
-            if desc.len() > settings.output.descriptionlength + 3 {
-                // if the desc truncated to max length plus three dot characters is
-                //  shorter than the max len then truncate it and add those three dots
-                desc = format!("{}...", &desc[..settings.output.descriptionlength]);
-            }
-
-            if show_note {
-                if let Some(aps) = aps {
-                    let mut ap_added_to_leaf = false;
-                    let mut note_leaf = Tree::new(format!("🗏 {} | {}", desc, note.task_id));
-                    for ap in aps {
-                        if *done || !ap.checked {
-                            let mark = if ap.checked {
-                                "🗹"
-                            } else {
-                                "☐"
-                            };
-                            let action_leaf = Tree::new(format!("{} {}", mark, ap.description));
-                            note_leaf.push(action_leaf);
-                            ap_added_to_leaf = true;
-                        }
-                    }
-                    if ap_added_to_leaf {
-                        tree_root.push(note_leaf);
-                        tree_populated = true;    
-                    }
+    for found_note in found_notes {
+        let aps = found_note.note.get_action_points()?;
+        if let Some(aps) = aps {
+            let desc = if let Some(task) = found_note.task.clone() {
+                let mut desc = task.description.clone();
+                if desc.len() > settings.output.descriptionlength + 3 {
+                    // if the desc truncated to max length plus three dot characters is
+                    //  shorter than the max len then truncate it and add those three dots
+                    desc = format!("{}...", &desc[..settings.output.descriptionlength]);
+                }
+                desc
+            } else {
+                "[ orphaned ]".to_string()
+            };
+    
+            let task_id = if let Some(task) = found_note.task {
+                task.id.to_string()
+            } else {
+                "[ orphaned ]".to_string()
+            };
+    
+            let mut ap_added_to_leaf = false;
+            let mut note_leaf = Tree::new(format!("🗏 {} | {}", desc, task_id));
+            for ap in aps {
+                if *done || !ap.checked {
+                    let mark = if ap.checked {
+                        "🗹"
+                    } else {
+                        "☐"
+                    };
+                    let action_leaf = Tree::new(format!("{} {}", mark, ap.description));
+                    note_leaf.push(action_leaf);
+                    ap_added_to_leaf = true;
                 }
             }
-        } else if *orphaned {
-            // there is no task file anymore, and orphaned is true so we add it
-            if let Some(aps) = aps {
-                if aps.is_empty() {
-                    continue;
-                }
-                let mut note_leaf = Tree::new(format!("🗏 [orphaned] | {}", note.task_id));
-                for ap in aps {
-                    if *done || !ap.checked {
-                        let mark = if ap.checked {
-                            "🗹"
-                        } else {
-                            "☐"
-                        };
-                        let action_leaf = Tree::new(format!("{} {}", mark, ap.description));
-                        note_leaf.push(action_leaf);
-                    }
-                }
+            if ap_added_to_leaf {
                 tree_root.push(note_leaf);
-                tree_populated = true;
+                tree_populated = true;    
             }
-        }
+        }    
     }
+
     if tree_populated {
         println!("\n{}", tree_root);
     } else {

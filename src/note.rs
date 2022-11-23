@@ -193,9 +193,9 @@ pub struct FoundNote {
 
 pub fn list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<Vec<FoundNote>> {
     let note_pathbuf: PathBuf = if id.is_some() {
-        note_pathbuf_from_id(&format!("*{}*.yaml", id.as_ref().unwrap()), settings)?
+        note_pathbuf_from_id(&format!("*{}*", id.as_ref().unwrap()), settings)?
     } else {
-        note_pathbuf_from_id(&"*.yaml".to_string(), settings)?
+        note_pathbuf_from_id(&"*".to_string(), settings)?
     };
 
     let mut found_notes: Vec<FoundNote> = vec![];
