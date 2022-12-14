@@ -21,7 +21,7 @@ edit = "0.1.4"
 file-lock = "2.1.6"
 glob = "0.3.0"
 hhmmss = "0.1.0"
-markdown = "1.0.0-alpha.4"
+markdown = "1.0.0-alpha.5"
 nom = "7.1.1"
 question = "0.2.2"
 serde = { version = "1.0.150", features = ["derive"] }
