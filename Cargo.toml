@@ -24,7 +24,7 @@ hhmmss = "0.1.0"
 markdown = "1.0.0-alpha.5"
 nom = "7.1.1"
 question = "0.2.2"
-serde = { version = "1.0.150", features = ["derive"] }
+serde = { version = "1.0.151", features = ["derive"] }
 serde_yaml = "0.9.14"
 simple-file-rotation = "0.3.4"
 strum = { version = "0.24.1", features = ["derive"] }
