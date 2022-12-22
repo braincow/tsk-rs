@@ -293,7 +293,9 @@ fn cli_list_tasks(search: &Option<String>, include_done: &bool, settings: &Setti
 }
 
 fn cli_complete_task(id: &String, settings: &Settings) -> Result<()> {
-    let task = load_task(id, settings)?;
+    let mut task = load_task(id, settings)?;
+    task.mark_as_completed().with_context(|| {"while marking task as completed"})?;
+    save_task(&mut task, settings).with_context(|| {"while saving modified task yaml file"})?;
     println!("Task '{}' now marked as done.", task.id);
 
     Ok(())
