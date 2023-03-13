@@ -11,7 +11,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0.69"
 bat = { version = "0.22.1", default-features = false, features = ["regex-fancy"] }
-chrono = { version = "0.4.23", features = ["serde"] }
+chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.8", features = ["derive", "string", "env"] }
 cli-table = "0.4.7"
 config = "0.13.3"
