@@ -15,7 +15,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 clap = { version = "4.1.11", features = ["derive", "string", "env"] }
 cli-table = "0.4.7"
 config = "0.13.3"
-directories = "4.0.1"
+directories = "5.0.1"
 dotenv = "0.15.0"
 edit = "0.1.4"
 file-lock = "2.1.9"
