@@ -31,6 +31,6 @@ strum = { version = "0.25.0", features = ["derive"] }
 termtree = "0.4.1"
 thiserror = "1.0.40"
 toml = "0.7.5"
-uuid = { version = "1.3.4", features = ["v4", "v5", "serde"] }
+uuid = { version = "1.4.0", features = ["v4", "v5", "serde"] }
 
 #eof
