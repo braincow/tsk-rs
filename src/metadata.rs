@@ -35,3 +35,27 @@ impl FromStr for MetadataKeyValuePair {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_success() {
+        let metadata = MetadataKeyValuePair::from_str("x-fuu=bar").unwrap();
+        assert_eq!(metadata.key, "x-fuu");
+        assert_eq!(metadata.value, "bar");    
+    }
+
+    #[test]
+    fn test_parse_notpair_failure() {
+        let metadata = MetadataKeyValuePair::from_str("x-fuubar");
+        assert_eq!(metadata.err().unwrap(), MetadataKeyValuePairError::ParseError);
+    }
+
+    #[test]
+    fn test_parse_prefix_failure() {
+        let metadata = MetadataKeyValuePair::from_str("fuu=bar");
+        assert_eq!(metadata.err().unwrap(), MetadataKeyValuePairError::InvalidPrefix);
+    }
+}
