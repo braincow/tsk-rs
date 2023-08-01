@@ -1,12 +1,23 @@
-use std::{path::PathBuf, fs::remove_file};
-use anyhow::{Result, Context, bail};
-use clap::{Parser, Subcommand};
-use cli_table::{Cell, Table, Style, format::{Border, Separator}, print_stdout};
-use question::{Question, Answer};
-use tsk_rs::{settings::{Settings, show_config, default_config}, task::{TaskError, load_task}, note::{Note, load_note, save_note, note_pathbuf_from_id, note_pathbuf_from_note, list_notes, amount_of_notes}, metadata::MetadataKeyValuePair};
 use bat::{Input, PrettyPrinter};
+use clap::{Parser, Subcommand};
+use cli_table::{
+    format::{Border, Separator},
+    print_stdout, Cell, Style, Table,
+};
+use color_eyre::eyre::{bail, Context, Result};
 use dotenv::dotenv;
+use question::{Answer, Question};
+use std::{fs::remove_file, path::PathBuf};
 use termtree::Tree;
+use tsk_rs::{
+    metadata::MetadataKeyValuePair,
+    note::{
+        amount_of_notes, list_notes, load_note, note_pathbuf_from_id, note_pathbuf_from_note,
+        save_note, Note,
+    },
+    settings::{default_config, show_config, Settings},
+    task::{load_task, TaskError},
+};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -16,7 +27,14 @@ struct Cli {
     config: PathBuf,
 
     /// Sets the namespace of tasks
-    #[clap(short, long, value_parser, env = "TSK_NAMESPACE", value_name = "NAMESPACE", default_value = "default")]
+    #[clap(
+        short,
+        long,
+        value_parser,
+        env = "TSK_NAMESPACE",
+        value_name = "NAMESPACE",
+        default_value = "default"
+    )]
     namespace: Option<String>,
 
     #[clap(subcommand)]
@@ -66,7 +84,7 @@ enum Commands {
         completed: bool,
     },
     /// List action point(s) from task notes
-    #[clap(visible_alias="aps")]
+    #[clap(visible_alias = "aps")]
     ActionPoints {
         /// Existing task/note id or a part of one. Empty will list all.
         #[clap(value_parser)]
@@ -79,7 +97,7 @@ enum Commands {
         completed: bool,
         /// List aps that are done
         #[clap(short, long, value_parser)]
-        done: bool,        
+        done: bool,
     },
     /// Display the current configuration of the tsk-rs suite
     Config,
@@ -89,7 +107,7 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// Add metadata from note: x-key=value
-        #[clap(long,value_parser)]
+        #[clap(long, value_parser)]
         metadata: Option<Vec<MetadataKeyValuePair>>,
     },
     /// Unset note characteristics
@@ -98,9 +116,9 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
         /// Remove metadata(s) from note: x-key
-        #[clap(long,value_parser)]
+        #[clap(long, value_parser)]
         metadata: Option<Vec<String>>,
-    }
+    },
 }
 
 fn main() -> Result<()> {
@@ -109,42 +127,41 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let settings = Settings::new(cli.namespace, cli.config.to_str().unwrap())
-        .with_context(|| {"while loading settings"})?;
+        .with_context(|| "while loading settings")?;
 
     if settings.output.namespace {
         println!(" Namespace: '{}'", settings.namespace);
     }
-   
+
     match &cli.command {
-        Some(Commands::Edit { id, raw }) => {
-            edit_note(id, raw, &settings)
-        },
-        Some(Commands::Show { id, raw }) => {
-            show_note(id, raw, &settings)
-        },
-        Some(Commands::List {id, orphaned, completed }) => {
-            cli_list_notes(id, orphaned, completed, &settings)
-        },
-        Some(Commands::Delete { id, force }) => {
-            delete_note(id, force, &settings)
-        },
-        Some(Commands::Config) => {
-            show_config(&settings)
-        },
-        Some(Commands::Set { id, metadata }) => {
-            cli_set_characteristic(id, metadata, &settings)
-        },
-        Some(Commands::Unset { id, metadata }) => {
-            cli_unset_characteristic(id, metadata, &settings)
-        },
-        Some(Commands::ActionPoints { id, orphaned, completed, done }) => {
-            list_aps(id, orphaned, completed, done, &settings)
-        },
-        None => { cli_list_notes(&None, &false, &false, &settings) }
+        Some(Commands::Edit { id, raw }) => edit_note(id, raw, &settings),
+        Some(Commands::Show { id, raw }) => show_note(id, raw, &settings),
+        Some(Commands::List {
+            id,
+            orphaned,
+            completed,
+        }) => cli_list_notes(id, orphaned, completed, &settings),
+        Some(Commands::Delete { id, force }) => delete_note(id, force, &settings),
+        Some(Commands::Config) => show_config(&settings),
+        Some(Commands::Set { id, metadata }) => cli_set_characteristic(id, metadata, &settings),
+        Some(Commands::Unset { id, metadata }) => cli_unset_characteristic(id, metadata, &settings),
+        Some(Commands::ActionPoints {
+            id,
+            orphaned,
+            completed,
+            done,
+        }) => list_aps(id, orphaned, completed, done, &settings),
+        None => cli_list_notes(&None, &false, &false, &settings),
     }
 }
 
-fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool, settings: &Settings) -> Result<()> {
+fn list_aps(
+    id: &Option<String>,
+    orphaned: &bool,
+    completed: &bool,
+    done: &bool,
+    settings: &Settings,
+) -> Result<()> {
     let found_notes = list_notes(id, orphaned, completed, settings)?;
 
     let mut tree_root = Tree::new("🗐 Task notes".to_string());
@@ -164,22 +181,18 @@ fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool,
             } else {
                 "[ orphaned ]".to_string()
             };
-    
+
             let task_id = if let Some(task) = found_note.task {
                 task.id.to_string()
             } else {
                 "[ orphaned ]".to_string()
             };
-    
+
             let mut ap_added_to_leaf = false;
             let mut note_leaf = Tree::new(format!("🗏 {} | {}", desc, task_id));
             for ap in aps {
                 if *done || !ap.checked {
-                    let mark = if ap.checked {
-                        "🗹"
-                    } else {
-                        "☐"
-                    };
+                    let mark = if ap.checked { "🗹" } else { "☐" };
                     let action_leaf = Tree::new(format!("{} {}", mark, ap.description));
                     note_leaf.push(action_leaf);
                     ap_added_to_leaf = true;
@@ -187,9 +200,9 @@ fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool,
             }
             if ap_added_to_leaf {
                 tree_root.push(note_leaf);
-                tree_populated = true;    
+                tree_populated = true;
             }
-        }    
+        }
     }
 
     if tree_populated {
@@ -201,7 +214,12 @@ fn list_aps(id: &Option<String>, orphaned: &bool, completed: &bool, done: &bool,
     Ok(())
 }
 
-fn cli_list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settings: &Settings) -> Result<()> {
+fn cli_list_notes(
+    id: &Option<String>,
+    orphaned: &bool,
+    completed: &bool,
+    settings: &Settings,
+) -> Result<()> {
     let mut note_cells = vec![];
 
     let found_notes = list_notes(id, orphaned, completed, settings)?;
@@ -217,8 +235,11 @@ fn cli_list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settin
                 desc = format!("{}...", &desc[..settings.output.descriptionlength]);
             }
             listed_notes_count += 1;
-            note_cells.push(vec![task.id.cell(), desc.cell(),
-                task.project.unwrap_or_else(|| {"".to_string()}).cell(),]);
+            note_cells.push(vec![
+                task.id.cell(),
+                desc.cell(),
+                task.project.unwrap_or_else(|| "".to_string()).cell(),
+            ]);
         } else if *orphaned {
             // there is no task file anymore, and orphaned is true so we add it
             note_cells.push(vec![
@@ -231,16 +252,22 @@ fn cli_list_notes(id: &Option<String>, orphaned: &bool, completed: &bool, settin
     }
 
     if !note_cells.is_empty() {
-        let tasks_table = note_cells.table()
-            .title(
-                vec!["Note/Task ID".cell().bold(true).underline(true),
+        let tasks_table = note_cells
+            .table()
+            .title(vec![
+                "Note/Task ID".cell().bold(true).underline(true),
                 "Description".cell().bold(true).underline(true),
-                "Project".cell().bold(true).underline(true)]) // headers of the table
+                "Project".cell().bold(true).underline(true),
+            ]) // headers of the table
             .border(Border::builder().build())
             .separator(Separator::builder().build()); // empty border around the table
-            print_stdout(tasks_table).with_context(|| {"while trying to print out pretty table of task(s)"})?;
+        print_stdout(tasks_table)
+            .with_context(|| "while trying to print out pretty table of task(s)")?;
 
-        println!("\n Number of notes: {}/{}", listed_notes_count, found_notes_count);
+        println!(
+            "\n Number of notes: {}/{}",
+            listed_notes_count, found_notes_count
+        );
     } else {
         println!("No task notes");
     }
@@ -254,16 +281,16 @@ fn delete_note(id: &String, force: &bool, settings: &Settings) -> Result<()> {
 
     let answer = if !force {
         Question::new("Really delete this note?")
-        .default(Answer::NO)
-        .show_defaults()
-        .confirm()
+            .default(Answer::NO)
+            .show_defaults()
+            .confirm()
     } else {
         Answer::YES
     };
 
     if answer == Answer::YES {
-        remove_file(note_pathbuf).with_context(|| {"while removing note file"})?;
-        println!("Note for '{}' now deleted permanently.", note.task_id);    
+        remove_file(note_pathbuf).with_context(|| "while removing note file")?;
+        println!("Note for '{}' now deleted permanently.", note.task_id);
     }
 
     Ok(())
@@ -295,7 +322,8 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             md = format!("{}\n## {}\n\n\n", md, local_timestamp);
         }
 
-        let new_md = edit::edit_with_builder(md.clone(), edit::Builder::new().suffix(".md")).with_context(|| {"while starting an external editor"})?;
+        let new_md = edit::edit_with_builder(md.clone(), edit::Builder::new().suffix(".md"))
+            .with_context(|| "while starting an external editor")?;
 
         if new_md != md {
             note.markdown = Some(new_md);
@@ -303,15 +331,18 @@ fn edit_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
         }
     } else {
         // modify the raw YAML notation of the task file
-        let new_yaml = edit::edit_with_builder(note.to_yaml_string()?, edit::Builder::new().suffix(".yaml")).with_context(|| {"while starting an external editor"})?;
+        let new_yaml =
+            edit::edit_with_builder(note.to_yaml_string()?, edit::Builder::new().suffix(".yaml"))
+                .with_context(|| "while starting an external editor")?;
         if new_yaml != note.to_yaml_string()? {
-            note = Note::from_yaml_string(&new_yaml).with_context(|| {"while deserializing modified note yaml"})?;
+            note = Note::from_yaml_string(&new_yaml)
+                .with_context(|| "while deserializing modified note yaml")?;
             modified = true;
         }
     }
 
     if modified {
-        save_note(&mut note, settings).with_context(|| {"while saving note yaml file"})?;
+        save_note(&mut note, settings).with_context(|| "while saving note yaml file")?;
         println!("Note for '{}' was updated.", note.task_id);
     }
 
@@ -331,7 +362,7 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
                 .grid(settings.output.grid)
                 .line_numbers(settings.output.numbers)
                 .print()
-                .with_context(|| {"while trying to prettyprint markdown"})?;
+                .with_context(|| "while trying to prettyprint markdown")?;
         }
     } else {
         let note_yaml = note.to_yaml_string()?;
@@ -342,13 +373,17 @@ fn show_note(id: &String, raw: &bool, settings: &Settings) -> Result<()> {
             .grid(settings.output.grid)
             .line_numbers(settings.output.numbers)
             .print()
-            .with_context(|| {"while trying to prettyprint yaml"})?;
+            .with_context(|| "while trying to prettyprint yaml")?;
     }
 
     Ok(())
 }
 
-fn cli_set_characteristic(id: &String, metadata: &Option<Vec<MetadataKeyValuePair>>, settings: &Settings) -> Result<()> {
+fn cli_set_characteristic(
+    id: &String,
+    metadata: &Option<Vec<MetadataKeyValuePair>>,
+    settings: &Settings,
+) -> Result<()> {
     let mut note = load_note(id, settings)?;
     let modified = note.set_characteristic(metadata);
 
@@ -360,7 +395,11 @@ fn cli_set_characteristic(id: &String, metadata: &Option<Vec<MetadataKeyValuePai
     Ok(())
 }
 
-fn cli_unset_characteristic(id: &String, metadata: &Option<Vec<String>>, settings: &Settings) -> Result<()> {
+fn cli_unset_characteristic(
+    id: &String,
+    metadata: &Option<Vec<String>>,
+    settings: &Settings,
+) -> Result<()> {
     let mut note = load_note(id, settings)?;
     let modified = note.unset_characteristic(metadata);
 

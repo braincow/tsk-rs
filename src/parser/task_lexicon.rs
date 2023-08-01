@@ -1,9 +1,16 @@
-use std::str::FromStr;
-use chrono::NaiveDateTime;
-use nom::{bytes::complete::{tag, take_while1}, IResult, character::{is_space, is_newline, complete::char}, sequence::{preceded, separated_pair}, branch::alt, combinator::{all_consuming, map}};
-use thiserror::Error;
-use anyhow::{Result, bail, Context};
 use crate::task::TaskPriority;
+use chrono::NaiveDateTime;
+use color_eyre::eyre::{bail, Context, Result};
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_while1},
+    character::{complete::char, is_newline, is_space},
+    combinator::{all_consuming, map},
+    sequence::{preceded, separated_pair},
+    IResult,
+};
+use std::str::FromStr;
+use thiserror::Error;
 
 // https://imfeld.dev/writing/parsing_with_nom
 // https://github.com/Geal/nom/blob/main/doc/choosing_a_combinator.md
@@ -12,10 +19,7 @@ enum ExpressionPrototype<'a> {
     Description(&'a str),
     Project(&'a str),
     Tag(&'a str),
-    Metadata {
-        key: &'a str,
-        value: &'a str
-    },
+    Metadata { key: &'a str, value: &'a str },
     Priority(&'a str),
     Duedate(&'a str),
 }
@@ -25,10 +29,7 @@ pub enum Expression {
     Description(String),
     Project(String),
     Tag(String),
-    Metadata {
-        key: String,
-        value: String
-    },
+    Metadata { key: String, value: String },
     Priority(TaskPriority),
     Duedate(NaiveDateTime),
 }
@@ -39,13 +40,22 @@ impl Expression {
             ExpressionPrototype::Description(text) => Expression::Description(String::from(*text)),
             ExpressionPrototype::Project(text) => Expression::Project(String::from(*text)),
             ExpressionPrototype::Tag(text) => Expression::Tag(String::from(*text)),
-            ExpressionPrototype::Metadata { key, value } => Expression::Metadata { key: String::from(*key), value: String::from(*value) },
+            ExpressionPrototype::Metadata { key, value } => Expression::Metadata {
+                key: String::from(*key),
+                value: String::from(*value),
+            },
             ExpressionPrototype::Priority(text) => {
                 let mut prio_string = text.to_string().to_lowercase();
                 prio_string = prio_string[0..1].to_uppercase() + &prio_string[1..];
-                Expression::Priority(TaskPriority::from_str(&prio_string).with_context(|| {"invalid priority specified in descriptor"})?)
-            },
-            ExpressionPrototype::Duedate(text) => Expression::Duedate(NaiveDateTime::from_str(text).with_context(|| {"invalid date time format for duedate in descriptor"})?),
+                Expression::Priority(
+                    TaskPriority::from_str(&prio_string)
+                        .with_context(|| "invalid priority specified in descriptor")?,
+                )
+            }
+            ExpressionPrototype::Duedate(text) => Expression::Duedate(
+                NaiveDateTime::from_str(text)
+                    .with_context(|| "invalid date time format for duedate in descriptor")?,
+            ),
         })
     }
 }
@@ -83,7 +93,10 @@ fn project(input: &str) -> IResult<&str, &str> {
 }
 
 fn project2(input: &str) -> IResult<&str, &str> {
-    preceded(alt((tag("prj:"), tag("proj:"), tag("PRJ:"), tag("PROJ:"))), word)(input)
+    preceded(
+        alt((tag("prj:"), tag("proj:"), tag("PRJ:"), tag("PROJ:"))),
+        word,
+    )(input)
 }
 
 fn metadata(input: &str) -> IResult<&str, (&str, &str)> {
@@ -99,19 +112,28 @@ fn priority(input: &str) -> IResult<&str, &str> {
 }
 
 fn due_date(input: &str) -> IResult<&str, &str> {
-    preceded(alt((tag("due:"), tag("DUE:"), tag("duedate:"), tag("DUEDATE:"))), word)(input)
+    preceded(
+        alt((tag("due:"), tag("DUE:"), tag("duedate:"), tag("DUEDATE:"))),
+        word,
+    )(input)
 }
 
 fn directive(input: &str) -> IResult<&str, ExpressionPrototype> {
     alt((
-    map(hashtag, ExpressionPrototype::Tag),
-    map(hashtag2, ExpressionPrototype::Tag),
-    map(project, ExpressionPrototype::Project),
-    map(project2, ExpressionPrototype::Project),
-    map(metadata, |(key, value) | ExpressionPrototype::Metadata {key, value}),
-    map(metadata2, |(key, value) | ExpressionPrototype::Metadata {key, value}),
-    map(priority, ExpressionPrototype::Priority),
-    map(due_date, ExpressionPrototype::Duedate),
+        map(hashtag, ExpressionPrototype::Tag),
+        map(hashtag2, ExpressionPrototype::Tag),
+        map(project, ExpressionPrototype::Project),
+        map(project2, ExpressionPrototype::Project),
+        map(metadata, |(key, value)| ExpressionPrototype::Metadata {
+            key,
+            value,
+        }),
+        map(metadata2, |(key, value)| ExpressionPrototype::Metadata {
+            key,
+            value,
+        }),
+        map(priority, ExpressionPrototype::Priority),
+        map(due_date, ExpressionPrototype::Duedate),
     ))(input)
 }
 
@@ -164,20 +186,20 @@ pub enum LexiconError {
 }
 
 pub fn parse_task(input: String) -> Result<Vec<Expression>> {
-    let parsed = alt((
-        all_consuming(parse_inline),
-    ))(&input)
-    .map(|(_, results)| results);
+    let parsed = alt((all_consuming(parse_inline),))(&input).map(|(_, results)| results);
 
     match parsed {
         Ok(prototype_expressions) => {
             let mut ready_expressions: Vec<Expression> = vec![];
             for expression_prototype in prototype_expressions {
-                ready_expressions.push(Expression::from_prototype(&expression_prototype).with_context(|| {"malformed expression in task descriptor"})?);
+                ready_expressions.push(
+                    Expression::from_prototype(&expression_prototype)
+                        .with_context(|| "malformed expression in task descriptor")?,
+                );
             }
             Ok(ready_expressions)
-        },
-        Err(error) => bail!(LexiconError::ParserError(error.to_string()))
+        }
+        Err(error) => bail!(LexiconError::ParserError(error.to_string())),
     }
 }
 
@@ -223,7 +245,7 @@ mod tests {
     #[test]
     fn metaword_from_allowed() {
         assert_eq!(meta_word("x-meta-word").unwrap(), ("", "x-meta-word"));
-    }    
+    }
 
     #[test]
     fn metaword_from_whitespace() {
@@ -252,7 +274,10 @@ mod tests {
 
     #[test]
     fn metadata_pair_valid() {
-        assert_eq!(metadata_pair("x-meta=value").unwrap(), ("", ("x-meta", "value")));
+        assert_eq!(
+            metadata_pair("x-meta=value").unwrap(),
+            ("", ("x-meta", "value"))
+        );
     }
 
     #[test]
@@ -278,13 +303,37 @@ mod tests {
 
         assert_eq!(leftover, "");
         // assert the expressions from Vec
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("additional text at the end"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "fuu", value: "bar" });
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "x-meta", value: "data" });
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("a-second-tag"));
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Description("additional text at the end")
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Metadata {
+                key: "fuu",
+                value: "bar"
+            }
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Metadata {
+                key: "x-meta",
+                value: "data"
+            }
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Tag("a-second-tag")
+        );
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("taghere"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Project("project-here"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("some task description here"));
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Project("project-here")
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Description("some task description here")
+        );
     }
 
     #[test]
@@ -295,17 +344,43 @@ mod tests {
 
         assert_eq!(leftover, "");
         // assert the expressions from Vec
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("and some text at the end"));
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Description("and some text at the end")
+        );
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Priority("medium"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Duedate("2022-08-16T16:56:00"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "fuu", value: "bar" });
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Metadata { key: "x-meta", value: "data" });
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("a-second-tag"));
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Duedate("2022-08-16T16:56:00")
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Metadata {
+                key: "fuu",
+                value: "bar"
+            }
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Metadata {
+                key: "x-meta",
+                value: "data"
+            }
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Tag("a-second-tag")
+        );
         assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Tag("taghere"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Project("project-here"));
-        assert_eq!(meta.pop().unwrap(), ExpressionPrototype::Description("some task description here"));
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Project("project-here")
+        );
+        assert_eq!(
+            meta.pop().unwrap(),
+            ExpressionPrototype::Description("some task description here")
+        );
     }
-
 
     #[test]
     fn parse_full_testcase_no_expressions() {
@@ -319,5 +394,4 @@ mod tests {
         // ... check that the vec is actually now empty
         assert!(meta.is_empty());
     }
-
 }

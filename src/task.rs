@@ -1,21 +1,32 @@
-use crate::{parser::task_lexicon::{Expression, parse_task}, settings::Settings, metadata::MetadataKeyValuePair};
-use std::{collections::BTreeMap, path::PathBuf, io::{Write, Read}, fs::File, fmt::Display, str::FromStr};
+use crate::{
+    metadata::MetadataKeyValuePair,
+    parser::task_lexicon::{parse_task, Expression},
+    settings::Settings,
+};
 use chrono::{DateTime, Duration, Local, NaiveDateTime};
+use color_eyre::eyre::{bail, Context, Result};
 use file_lock::{FileLock, FileOptions};
-use serde::{Serialize, Deserialize};
-use simple_file_rotation::FileRotation;
-use strum::{IntoStaticStr, EnumString};
-use thiserror::Error;
-use anyhow::{bail, Result, Context};
-use uuid::Uuid;
 use glob::glob;
+use serde::{Deserialize, Serialize};
+use simple_file_rotation::FileRotation;
+use std::{
+    collections::BTreeMap,
+    fmt::Display,
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+    str::FromStr,
+};
+use strum::{EnumString, IntoStaticStr};
+use thiserror::Error;
+use uuid::Uuid;
 
 #[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone, Eq, PartialEq, Debug)]
 pub enum TaskPriority {
-   Low,
-   Medium,
-   High,
-   Critical,
+    Low,
+    Medium,
+    High,
+    Critical,
 }
 
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -66,7 +77,11 @@ impl Display for Task {
 
 impl Task {
     pub fn loose_match(&self, search: &str) -> bool {
-        if self.description.to_lowercase().contains(&search.to_lowercase()) {
+        if self
+            .description
+            .to_lowercase()
+            .contains(&search.to_lowercase())
+        {
             return true;
         }
 
@@ -122,7 +137,11 @@ impl Task {
             } else {
                 timetracks = vec![];
             }
-            timetracks.push(TimeTrack { start_time: timestamp, end_time: None, annotation: annotation.clone() });
+            timetracks.push(TimeTrack {
+                start_time: timestamp,
+                end_time: None,
+                annotation: annotation.clone(),
+            });
             self.timetracker = Some(timetracks);
         } else {
             bail!(TaskError::TaskAlreadyRunning);
@@ -163,36 +182,50 @@ impl Task {
     }
 
     pub fn load_yaml_file_from(task_pathbuf: &PathBuf) -> Result<Self> {
-        let mut file = File::open(task_pathbuf)
-            .with_context(|| {"while opening task yaml file for reading"})?;
+        let mut file =
+            File::open(task_pathbuf).with_context(|| "while opening task yaml file for reading")?;
         let mut task_yaml: String = String::new();
         file.read_to_string(&mut task_yaml)
-            .with_context(|| {"while reading task yaml file"})?;
+            .with_context(|| "while reading task yaml file")?;
         Task::from_yaml_string(&task_yaml)
-            .with_context(|| {"while serializing yaml into task struct"})
+            .with_context(|| "while serializing yaml into task struct")
     }
 
-    pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf, rotate: &usize ) -> Result<()> {
+    pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf, rotate: &usize) -> Result<()> {
         // rotate existing file with same name if present
         if task_pathbuf.is_file() && rotate > &0 {
-            FileRotation::new(&task_pathbuf).max_old_files(*rotate).file_extension("yaml".to_string()).rotate()
-                .with_context(|| {"while rotating task data file backups"})?;
+            FileRotation::new(&task_pathbuf)
+                .max_old_files(*rotate)
+                .file_extension("yaml".to_string())
+                .rotate()
+                .with_context(|| "while rotating task data file backups")?;
         }
         // save file by locking
-        let should_we_block  = true;
+        let should_we_block = true;
         let options = FileOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .append(false);
         {
-            let mut filelock= FileLock::lock(task_pathbuf, should_we_block, options)
-                .with_context(|| {"while opening new task yaml file"})?;
-            filelock.file.write_all(self.to_yaml_string()
-                .with_context(|| {"while serializing task struct to yaml"})?.as_bytes())
-                    .with_context(|| {"while writing to task yaml file"})?;
-            filelock.file.flush().with_context(|| {"while flushing os caches to disk"})?;
-            filelock.file.sync_all().with_context(|| {"while syncing filesystem metadata"})?;
+            let mut filelock = FileLock::lock(task_pathbuf, should_we_block, options)
+                .with_context(|| "while opening new task yaml file")?;
+            filelock
+                .file
+                .write_all(
+                    self.to_yaml_string()
+                        .with_context(|| "while serializing task struct to yaml")?
+                        .as_bytes(),
+                )
+                .with_context(|| "while writing to task yaml file")?;
+            filelock
+                .file
+                .flush()
+                .with_context(|| "while flushing os caches to disk")?;
+            filelock
+                .file
+                .sync_all()
+                .with_context(|| "while syncing filesystem metadata")?;
         }
 
         Ok(())
@@ -201,13 +234,16 @@ impl Task {
     pub fn mark_as_completed(&mut self) -> Result<()> {
         if self.is_running() {
             // if the task is running stop the current timetrack first to cleanup properly
-            self.stop().with_context(|| {"while stopping a task"})?;
+            self.stop().with_context(|| "while stopping a task")?;
         }
         if !self.done {
             // only mark as done and add metadata if the task is not done yet. this keeps original task-completed-time intact
             self.done = true;
             let timestamp = chrono::offset::Local::now();
-            self.metadata.insert(String::from("tsk-rs-task-completed-time"), timestamp.to_rfc3339());    
+            self.metadata.insert(
+                String::from("tsk-rs-task-completed-time"),
+                timestamp.to_rfc3339(),
+            );
         }
 
         Ok(())
@@ -216,16 +252,28 @@ impl Task {
     pub fn new(description: String) -> Self {
         let timestamp = chrono::offset::Local::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
-        metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
-        Self { id: Uuid::new_v4(), description, done: false, project: None, tags: None, metadata, timetracker: None }
+        metadata.insert(
+            String::from("tsk-rs-task-create-time"),
+            timestamp.to_rfc3339(),
+        );
+        Self {
+            id: Uuid::new_v4(),
+            description,
+            done: false,
+            project: None,
+            tags: None,
+            metadata,
+            timetracker: None,
+        }
     }
 
-    pub fn to_yaml_string(&self) -> Result<String> {       
-        serde_yaml::to_string(self).with_context(|| {"unable to serialize task struct as yaml"})
+    pub fn to_yaml_string(&self) -> Result<String> {
+        serde_yaml::to_string(self).with_context(|| "unable to serialize task struct as yaml")
     }
 
     pub fn from_yaml_string(input: &str) -> Result<Self> {
-        let task: Task = serde_yaml::from_str(input).with_context(|| {"unable to deserialize yaml into task struct"})?;
+        let task: Task = serde_yaml::from_str(input)
+            .with_context(|| "unable to deserialize yaml into task struct")?;
         Ok(task)
     }
 
@@ -233,7 +281,8 @@ impl Task {
         if input.is_empty() {
             bail!(TaskError::TaskDescriptorEmpty);
         }
-        let expressions = parse_task(input.to_string()).with_context(|| {"while parsing task descriptor"})?;
+        let expressions =
+            parse_task(input.to_string()).with_context(|| "while parsing task descriptor")?;
 
         let mut description: String = String::new();
         let mut tags: Vec<String> = vec![];
@@ -250,14 +299,14 @@ impl Task {
                     } else {
                         description = desc;
                     }
-                },
+                }
                 Expression::Tag(tag) => {
                     let new_tag = tag;
                     if !tags.contains(&new_tag) {
                         // add the tag only if it is not already added (drop duplicates silently)
                         tags.push(new_tag);
                     }
-                },
+                }
                 Expression::Metadata { key, value } => {
                     let new_key = key.to_ascii_lowercase();
                     if !new_key.starts_with("x-") {
@@ -268,14 +317,14 @@ impl Task {
                     }
                     // add metadata key => value pair to map
                     metadata.insert(new_key, value);
-                },
+                }
                 Expression::Project(prj) => {
                     if !project.is_empty() {
                         bail!(TaskError::MultipleProjectsNotAllowed);
                     }
                     // set project
                     project = prj
-                },
+                }
                 Expression::Priority(prio) => {
                     let prio_str: &str = prio.into();
                     let key = "tsk-rs-task-priority".to_string();
@@ -283,7 +332,7 @@ impl Task {
                         bail!(TaskError::MultiplePrioritiesNotAllowed)
                     }
                     metadata.insert(key, prio_str.to_string());
-                },
+                }
                 Expression::Duedate(datetime) => {
                     let value = datetime.and_local_timezone(Local).unwrap().to_rfc3339();
                     let key = "tsk-rs-task-due-time".to_string();
@@ -305,7 +354,10 @@ impl Task {
         }
 
         let timestamp = chrono::offset::Local::now();
-        metadata.insert(String::from("tsk-rs-task-create-time"), timestamp.to_rfc3339());
+        metadata.insert(
+            String::from("tsk-rs-task-create-time"),
+            timestamp.to_rfc3339(),
+        );
 
         Ok(Self {
             id: Uuid::new_v4(),
@@ -321,42 +373,45 @@ impl Task {
     pub fn score(&self) -> Result<usize> {
         // the more "fleshed out" the task is the more higher score it should get
         let mut score: usize = 0;
-    
+
         if self.project.is_some() {
             // project is valued at 3 points
             score += 3;
         }
-    
+
         if self.tags.is_some() {
             // each hashtag is valued at two (2) points
             score += self.tags.as_ref().unwrap().len() * 2;
         }
-    
+
         if self.is_running() {
             // if task is running it gains 15 points
             score += 15;
         }
-    
+
         if self.timetracker.is_some() {
             // each timetracker entry grants 1 point
             score += self.timetracker.as_ref().unwrap().len();
         }
-    
+
         if let Some(priority) = self.metadata.get("tsk-rs-task-priority") {
             // priorities have different weights in the score
-            match TaskPriority::from_str(priority).with_context(|| {"while converting task priority to enum"})? {
+            match TaskPriority::from_str(priority)
+                .with_context(|| "while converting task priority to enum")?
+            {
                 TaskPriority::Low => score += 1,
                 TaskPriority::Medium => score += 3,
                 TaskPriority::High => score += 8,
                 TaskPriority::Critical => score += 13,
             }
         }
-    
+
         let timestamp = chrono::offset::Local::now();
 
         if let Some(duedate_str) = self.metadata.get("tsk-rs-task-due-time") {
             // if due date is present then WHEN has a different score
-            let duedate = DateTime::from_str(duedate_str).with_context(|| {"while parsing due date string as a datetime"})?;
+            let duedate = DateTime::from_str(duedate_str)
+                .with_context(|| "while parsing due date string as a datetime")?;
             let diff = duedate - timestamp;
 
             match diff.num_days() {
@@ -367,7 +422,8 @@ impl Task {
             };
         }
 
-        let create_date = DateTime::from_str(self.metadata.get("tsk-rs-task-create-time").unwrap()).with_context(|| {"while reading task creation date"})?;
+        let create_date = DateTime::from_str(self.metadata.get("tsk-rs-task-create-time").unwrap())
+            .with_context(|| "while reading task creation date")?;
         let create_diff = timestamp - create_date;
         // as the task gets older each day gives 0.14285715 worth of weight to score. this is rounded when
         //  returned as usize, but this means that every seven days grants one point
@@ -382,7 +438,7 @@ impl Task {
 
             if tags.contains(&"hold".to_string()) {
                 // hold will reduce score
-                if score >= 20  {
+                if score >= 20 {
                     score -= 20;
                 } else {
                     score = 0;
@@ -393,9 +449,14 @@ impl Task {
         Ok(score)
     }
 
-    pub fn unset_characteristic(&mut self, priority: &bool, due_date: &bool,
-        tags: &Option<Vec<String>>, project: &bool, metadata: &Option<Vec<String>>) -> bool {
-
+    pub fn unset_characteristic(
+        &mut self,
+        priority: &bool,
+        due_date: &bool,
+        tags: &Option<Vec<String>>,
+        project: &bool,
+        metadata: &Option<Vec<String>>,
+    ) -> bool {
         let mut modified = false;
 
         if *priority {
@@ -404,21 +465,21 @@ impl Task {
                 modified = true;
             }
         }
-    
+
         if *due_date {
             let old_duedate = self.metadata.remove("tsk-rs-task-due-time");
             if old_duedate.is_some() {
                 modified = true;
             }
         }
-    
+
         if let Some(tags) = tags {
             let mut task_tags = if let Some(task_tags) = self.tags.clone() {
                 task_tags
             } else {
                 vec![]
             };
-    
+
             let mut tags_modified = false;
             for remove_tag in tags {
                 if let Some(index) = task_tags.iter().position(|r| r == remove_tag) {
@@ -426,18 +487,18 @@ impl Task {
                     tags_modified = true;
                 }
             }
-    
+
             if tags_modified {
                 self.tags = Some(task_tags);
                 modified = true;
             }
         }
-    
+
         if *project {
             self.project = None;
             modified = true;
         }
-    
+
         if let Some(metadata) = metadata {
             for remove_metadata in metadata {
                 let old = self.metadata.remove(remove_metadata);
@@ -450,19 +511,29 @@ impl Task {
         modified
     }
 
-    pub fn set_characteristic(&mut self, priority: &Option<TaskPriority>, due_date: &Option<NaiveDateTime>,
-        tags: &Option<Vec<String>>, project: &Option<String>, metadata: &Option<Vec<MetadataKeyValuePair>>) -> bool {
+    pub fn set_characteristic(
+        &mut self,
+        priority: &Option<TaskPriority>,
+        due_date: &Option<NaiveDateTime>,
+        tags: &Option<Vec<String>>,
+        project: &Option<String>,
+        metadata: &Option<Vec<MetadataKeyValuePair>>,
+    ) -> bool {
         let mut modified = false;
 
         if let Some(priority) = priority {
             let prio_str: &str = priority.into();
-            self.metadata.insert("tsk-rs-task-priority".to_string(), prio_str.to_string());
+            self.metadata
+                .insert("tsk-rs-task-priority".to_string(), prio_str.to_string());
 
             modified = true;
         }
 
         if let Some(due_date) = due_date {
-            self.metadata.insert("tsk-rs-task-due-time".to_string(), due_date.and_local_timezone(Local).unwrap().to_rfc3339());
+            self.metadata.insert(
+                "tsk-rs-task-due-time".to_string(),
+                due_date.and_local_timezone(Local).unwrap().to_rfc3339(),
+            );
             modified = true;
         }
 
@@ -494,19 +565,20 @@ impl Task {
 
         if let Some(metadata) = metadata {
             for new_metadata in metadata {
-                self.metadata.insert(new_metadata.key.clone(), new_metadata.value.clone());
+                self.metadata
+                    .insert(new_metadata.key.clone(), new_metadata.value.clone());
                 modified = true;
             }
         }
 
         modified
-
     }
-
 }
 
 pub fn task_pathbuf_from_id(id: &String, settings: &Settings) -> Result<PathBuf> {
-    Ok(settings.task_db_pathbuf()?.join(PathBuf::from(format!("{}.yaml", id))))
+    Ok(settings
+        .task_db_pathbuf()?
+        .join(PathBuf::from(format!("{}.yaml", id))))
 }
 
 pub fn task_pathbuf_from_task(task: &Task, settings: &Settings) -> Result<PathBuf> {
@@ -514,54 +586,69 @@ pub fn task_pathbuf_from_task(task: &Task, settings: &Settings) -> Result<PathBu
 }
 
 pub fn load_task(id: &String, settings: &Settings) -> Result<Task> {
-    let task_pathbuf = task_pathbuf_from_id(id, settings).with_context(|| {"while building path of the file"})?;
-    let task = Task::load_yaml_file_from(&task_pathbuf).with_context(|| {"while loading task yaml file for editing"})?;
+    let task_pathbuf =
+        task_pathbuf_from_id(id, settings).with_context(|| "while building path of the file")?;
+    let task = Task::load_yaml_file_from(&task_pathbuf)
+        .with_context(|| "while loading task yaml file for editing")?;
     Ok(task)
 }
 
 pub fn save_task(task: &mut Task, settings: &Settings) -> Result<()> {
     let task_pathbuf = task_pathbuf_from_task(task, settings)?;
-    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate).with_context(|| {"while saving task yaml file"})?;
+    task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate)
+        .with_context(|| "while saving task yaml file")?;
     Ok(())
 }
 
 pub fn new_task(descriptor: String, settings: &Settings) -> Result<Task> {
-    let mut task = Task::from_task_descriptor(&descriptor).with_context(|| {"while parsing task descriptor"})?;
+    let mut task =
+        Task::from_task_descriptor(&descriptor).with_context(|| "while parsing task descriptor")?;
 
     // once the task file has been created check for special tags that should take immediate action
     if let Some(tags) = task.tags.clone() {
         if tags.contains(&"start".to_string()) && settings.task.starttag {
-            start_task(&task.id.to_string(), &Some("started on creation".to_string()), settings)?;
+            start_task(
+                &task.id.to_string(),
+                &Some("started on creation".to_string()),
+                settings,
+            )?;
         }
     }
 
-    save_task(&mut task, settings).with_context(|| {"while saving new task"})?;
+    save_task(&mut task, settings).with_context(|| "while saving new task")?;
     Ok(task)
 }
 
 pub fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> Result<Task> {
     let mut task = load_task(id, settings)?;
-    task.start(annotation).with_context(|| {"while starting time tracking"})?;
+    task.start(annotation)
+        .with_context(|| "while starting time tracking")?;
 
     // if special tag (hold) is present then release the hold by modifying tags.
     if settings.task.autorelease {
-        task.unset_characteristic(&false, &false, &Some(vec!["hold".to_string()]),
-            &false, &None);
+        task.unset_characteristic(
+            &false,
+            &false,
+            &Some(vec!["hold".to_string()]),
+            &false,
+            &None,
+        );
     }
 
-    save_task(&mut task, settings).with_context(|| {"while saving started task"})?;
+    save_task(&mut task, settings).with_context(|| "while saving started task")?;
     Ok(task)
 }
 
 pub fn stop_task(id: &String, done: &bool, settings: &Settings) -> Result<Task> {
     let mut task = load_task(id, settings)?;
-    task.stop().with_context(|| {"while stopping time tracking"})?;
+    task.stop()
+        .with_context(|| "while stopping time tracking")?;
 
     if *done {
         complete_task(&mut task, settings)?;
     }
 
-    save_task(&mut task, settings).with_context(|| {"while saving stopped task"})?;
+    save_task(&mut task, settings).with_context(|| "while saving stopped task")?;
 
     Ok(task)
 }
@@ -574,12 +661,21 @@ pub fn complete_task(task: &mut Task, settings: &Settings) -> Result<()> {
 
     // remove special tags when task is marked completed
     if settings.task.clearpsecialtags {
-        task.unset_characteristic(&false, &false, 
-            &Some(vec!["start".to_string(), "next".to_string(), "hold".to_string()]),
-            &false, &None);
+        task.unset_characteristic(
+            &false,
+            &false,
+            &Some(vec![
+                "start".to_string(),
+                "next".to_string(),
+                "hold".to_string(),
+            ]),
+            &false,
+            &None,
+        );
     }
 
-    task.mark_as_completed().with_context(|| {"while completing task"})?;
+    task.mark_as_completed()
+        .with_context(|| "while completing task")?;
     save_task(task, settings)?;
 
     Ok(())
@@ -588,10 +684,21 @@ pub fn complete_task(task: &mut Task, settings: &Settings) -> Result<()> {
 pub fn amount_of_tasks(settings: &Settings, include_backups: bool) -> Result<usize> {
     let mut tasks: usize = 0;
     let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
-    for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+    for task_filename in glob(task_pathbuf.to_str().unwrap())
+        .with_context(|| "while traversing task data directory files")?
+    {
         // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
-        if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" && 
-            !include_backups {
+        if task_filename
+            .as_ref()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .split('.')
+            .collect::<Vec<_>>()[1]
+            != "yaml"
+            && !include_backups
+        {
             continue;
         }
         tasks += 1;
@@ -599,17 +706,33 @@ pub fn amount_of_tasks(settings: &Settings, include_backups: bool) -> Result<usi
     Ok(tasks)
 }
 
-pub fn list_tasks(search: &Option<String>, include_done: &bool, settings: &Settings) -> Result<Vec<Task>> {
+pub fn list_tasks(
+    search: &Option<String>,
+    include_done: &bool,
+    settings: &Settings,
+) -> Result<Vec<Task>> {
     let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
 
     let mut found_tasks: Vec<Task> = vec![];
-    for task_filename in glob(task_pathbuf.to_str().unwrap()).with_context(|| {"while traversing task data directory files"})? {
+    for task_filename in glob(task_pathbuf.to_str().unwrap())
+        .with_context(|| "while traversing task data directory files")?
+    {
         // if the filename is u-u-i-d.3.yaml for example it is a backup file and should be disregarded
-        if task_filename.as_ref().unwrap().file_name().unwrap().to_string_lossy().split('.').collect::<Vec<_>>()[1] != "yaml" {
+        if task_filename
+            .as_ref()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .split('.')
+            .collect::<Vec<_>>()[1]
+            != "yaml"
+        {
             continue;
         }
 
-        let task = Task::load_yaml_file_from(&task_filename?).with_context(|| {"while loading task from yaml file"})?;
+        let task = Task::load_yaml_file_from(&task_filename?)
+            .with_context(|| "while loading task from yaml file")?;
 
         if !task.done || *include_done {
             if let Some(search) = search {
@@ -648,12 +771,20 @@ mod tests {
         let task = Task::from_yaml_string(YAMLTESTINPUT).unwrap();
 
         assert_eq!(task.project, Some(String::from("project-here")));
-        assert_eq!(task.description, "some task description here additional text at the end");
-        assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
+        assert_eq!(
+            task.description,
+            "some task description here additional text at the end"
+        );
+        assert_eq!(
+            task.tags,
+            Some(vec![String::from("taghere"), String::from("a-second-tag")])
+        );
         assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
         assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
 
-        let timestamp = DateTime::parse_from_rfc3339(task.metadata.get("tsk-rs-task-create-time").unwrap()).unwrap();
+        let timestamp =
+            DateTime::parse_from_rfc3339(task.metadata.get("tsk-rs-task-create-time").unwrap())
+                .unwrap();
         assert_eq!(timestamp.year(), 2022);
         assert_eq!(timestamp.month(), 8);
         assert_eq!(timestamp.day(), 6);
@@ -686,8 +817,14 @@ mod tests {
         let task = Task::from_task_descriptor(&FULLTESTCASEINPUT.to_string()).unwrap();
 
         assert_eq!(task.project, Some(String::from("project-here")));
-        assert_eq!(task.description, "some task description here additional text at the end");
-        assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
+        assert_eq!(
+            task.description,
+            "some task description here additional text at the end"
+        );
+        assert_eq!(
+            task.tags,
+            Some(vec![String::from("taghere"), String::from("a-second-tag")])
+        );
         assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
         assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
     }
@@ -697,11 +834,20 @@ mod tests {
         let task = Task::from_task_descriptor(&FULLTESTCASEINPUT2.to_string()).unwrap();
 
         assert_eq!(task.project, Some(String::from("project-here")));
-        assert_eq!(task.description, "some task description here and some text at the end");
-        assert_eq!(task.tags, Some(vec![String::from("taghere"), String::from("a-second-tag")]));
+        assert_eq!(
+            task.description,
+            "some task description here and some text at the end"
+        );
+        assert_eq!(
+            task.tags,
+            Some(vec![String::from("taghere"), String::from("a-second-tag")])
+        );
         assert_eq!(task.metadata.get("x-meta"), Some(&String::from("data")));
         assert_eq!(task.metadata.get("x-fuu"), Some(&String::from("bar")));
-        assert_eq!(task.metadata.get("tsk-rs-task-priority"), Some(&String::from("Medium")));
+        assert_eq!(
+            task.metadata.get("tsk-rs-task-priority"),
+            Some(&String::from("Medium"))
+        );
         //assert_eq!(task.metadata.get("tsk-rs-task-due-time"), );
     }
 
@@ -720,21 +866,30 @@ mod tests {
     fn reject_multiple_projects() {
         let task = Task::from_task_descriptor(&MULTIPROJECTINPUT.to_string());
 
-        assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::MultipleProjectsNotAllowed);
+        assert_eq!(
+            task.unwrap_err().downcast::<TaskError>().unwrap(),
+            TaskError::MultipleProjectsNotAllowed
+        );
     }
 
     #[test]
     fn reject_duplicate_metadata() {
         let task = Task::from_task_descriptor(&DUPLICATEMETADATAINPUT.to_string());
 
-        assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::IdenticalMetadataKeyNotAllowed(String::from("x-fuu")));
+        assert_eq!(
+            task.unwrap_err().downcast::<TaskError>().unwrap(),
+            TaskError::IdenticalMetadataKeyNotAllowed(String::from("x-fuu"))
+        );
     }
 
     #[test]
     fn require_metadata_prefix() {
         let task = Task::from_task_descriptor(&INVALIDMETADATAKEY.to_string());
 
-        assert_eq!(task.unwrap_err().downcast::<TaskError>().unwrap(), TaskError::MetadataPrefixInvalid(String::from("invalid")));
+        assert_eq!(
+            task.unwrap_err().downcast::<TaskError>().unwrap(),
+            TaskError::MetadataPrefixInvalid(String::from("invalid"))
+        );
     }
 }
 

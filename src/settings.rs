@@ -1,9 +1,9 @@
-use std::{path::PathBuf, fs::create_dir_all, fmt::Display};
-use anyhow::{Result, Context, bail};
-use bat::{PrettyPrinter, Input};
+use bat::{Input, PrettyPrinter};
+use color_eyre::eyre::{bail, Context, Result};
 use config::Config;
 use directories::ProjectDirs;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::{fmt::Display, fs::create_dir_all, path::PathBuf};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -67,7 +67,10 @@ pub struct NoteSettings {
 
 impl Default for NoteSettings {
     fn default() -> Self {
-        Self { description: true, timestamp: true }
+        Self {
+            description: true,
+            timestamp: true,
+        }
     }
 }
 
@@ -81,7 +84,7 @@ pub struct DataSettings {
 
 impl Default for DataSettings {
     fn default() -> Self {
-        let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
+        let proj_dirs = ProjectDirs::from("", "", "tsk-rs").unwrap();
 
         Self {
             path: String::from(proj_dirs.data_dir().to_str().unwrap()),
@@ -113,9 +116,15 @@ impl Settings {
         let settings: Settings = Config::builder()
             .set_override_option("namespace", namespace)?
             .add_source(config::File::with_name(config_file).required(false))
-            .add_source(config::Environment::with_prefix("TSK").try_parsing(true).separator("_"))
-            .build().with_context(|| {"while reading configuration"})?
-            .try_deserialize().with_context(|| {"while applying defaults to configuration"})?;
+            .add_source(
+                config::Environment::with_prefix("TSK")
+                    .try_parsing(true)
+                    .separator("_"),
+            )
+            .build()
+            .with_context(|| "while reading configuration")?
+            .try_deserialize()
+            .with_context(|| "while applying defaults to configuration")?;
 
         Ok(settings)
     }
@@ -123,7 +132,7 @@ impl Settings {
     pub fn db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = PathBuf::from(&self.data.path).join(&self.namespace);
         if !pathbuf.is_dir() && self.data.createdir {
-            create_dir_all(&pathbuf).with_context(|| {"while creating data directory"})?;
+            create_dir_all(&pathbuf).with_context(|| "while creating data directory")?;
         } else if !pathbuf.is_dir() && !self.data.createdir {
             bail!(SettingsError::DataDirectoryDoesNotExist);
         }
@@ -133,7 +142,7 @@ impl Settings {
     pub fn task_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("tasks");
         if !pathbuf.is_dir() && self.data.createdir {
-            create_dir_all(&pathbuf).with_context(|| {"while creating tasks data directory"})?;
+            create_dir_all(&pathbuf).with_context(|| "while creating tasks data directory")?;
         } else if !pathbuf.is_dir() && !self.data.createdir {
             bail!(SettingsError::DataDirectoryDoesNotExist);
         }
@@ -143,13 +152,12 @@ impl Settings {
     pub fn note_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("notes");
         if !pathbuf.is_dir() && self.data.createdir {
-            create_dir_all(&pathbuf).with_context(|| {"while creating notes data directory"})?;
+            create_dir_all(&pathbuf).with_context(|| "while creating notes data directory")?;
         } else if !pathbuf.is_dir() && !self.data.createdir {
             bail!(SettingsError::DataDirectoryDoesNotExist);
         }
         Ok(pathbuf.to_path_buf())
     }
-
 }
 
 pub fn show_config(settings: &Settings) -> Result<()> {
@@ -161,14 +169,19 @@ pub fn show_config(settings: &Settings) -> Result<()> {
         .grid(settings.output.grid)
         .line_numbers(settings.output.numbers)
         .print()
-        .with_context(|| {"while trying to prettyprint yaml"})?;
+        .with_context(|| "while trying to prettyprint yaml")?;
 
     Ok(())
 }
 
 pub fn default_config() -> String {
-    let proj_dirs = ProjectDirs::from("", "",  "tsk-rs").unwrap();
-    proj_dirs.config_dir().join("tsk.toml").to_str().unwrap().to_owned()
+    let proj_dirs = ProjectDirs::from("", "", "tsk-rs").unwrap();
+    proj_dirs
+        .config_dir()
+        .join("tsk.toml")
+        .to_str()
+        .unwrap()
+        .to_owned()
 }
 
 // eof
