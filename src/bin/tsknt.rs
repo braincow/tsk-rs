@@ -1,5 +1,9 @@
 #![warn(missing_docs)]
 
+//! Note management made right and easy
+//!
+//! Command line utility for managing notes, actions items and metadata for a task in progress.
+
 use bat::{Input, PrettyPrinter};
 use clap::{Parser, Subcommand};
 use cli_table::{

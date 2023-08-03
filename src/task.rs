@@ -21,51 +21,81 @@ use strum::{EnumString, IntoStaticStr};
 use thiserror::Error;
 use uuid::Uuid;
 
+/// Available priorities for a task
+/// Each priority level has an different effect to the overall urgency level calculations
 #[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone, Eq, PartialEq, Debug)]
 pub enum TaskPriority {
+    /// Low priority
     Low,
+    /// Medium priority
     Medium,
+    /// High priority
     High,
+    /// Critical priority
     Critical,
 }
 
+/// Errors that can occure when working with a task and its metadata
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum TaskError {
+    /// Multiple projects were defined in the task descriptor. Not allowed.
     #[error("only one project identifier allowed")]
     MultipleProjectsNotAllowed,
+    /// Multiple priorities were defined in the task description. Not allowed.
     #[error("only one priority identifier allowed")]
     MultiplePrioritiesNotAllowed,
+    /// Multiple due dates were defined in the task descriptor. Not allowed.
     #[error("only one due date identifier allowed")]
     MultipleDuedatesNotAllowed,
+    /// Multiple metadata pairs with same key was defined in the task descriptor. Not allowed.
     #[error("only one instance of metadata key `{0}` is allowed")]
     IdenticalMetadataKeyNotAllowed(String),
+    /// Metadata key defined in the task descriptor is malformed or was not prefixed with "x-".
     #[error("metadata key name invalid `{0}`. try with prefix `x-{0}`")]
     MetadataPrefixInvalid(String),
+    /// Task was already marked to be completed and thus it cant be modified.
     #[error("task already completed. cannot modify")]
     TaskAlreadyCompleted,
+    /// Task is already running
     #[error("task already running")]
     TaskAlreadyRunning,
+    /// Task is not running
     #[error("task not running")]
     TaskNotRunning,
+    /// Task descriptor was empty
     #[error("task descriptor cant be an empty string")]
     TaskDescriptorEmpty,
 }
 
+/// Time track entry holds information about a span of time while the task was/is being worked on.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeTrack {
+    /// Local timestamp for the moment in time when the time tracking was started
     pub start_time: DateTime<Local>,
+    /// Local timestamp for the moment in time when the time tracking ended
     pub end_time: Option<DateTime<Local>>,
+    /// Optional annotation or a description for the time span e.g what was done while working on
+    /// the task?
     pub annotation: Option<String>,
 }
 
+/// Task data abstraction as a Rust struct
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
+    /// Unique identifier for the task
     pub id: Uuid,
+    /// Description or a title of the task
     pub description: String,
+    /// Is the task completed or not
     pub done: bool,
+    /// To which project (if any) is this task part of?
     pub project: Option<String>,
+    /// Tags (if any) for the task that can be used to group several tasks of some kind
     pub tags: Option<Vec<String>>,
+    /// Key, value pairs holding either user added metadata fields prepended with the "x-" string
+    /// or task management internal metadata.
     pub metadata: BTreeMap<String, String>,
+    /// List of optional [TimeTrack] entries.
     pub timetracker: Option<Vec<TimeTrack>>,
 }
 
@@ -76,6 +106,8 @@ impl Display for Task {
 }
 
 impl Task {
+    /// Search the task with a string and try to match it to available information. Return true if
+    /// the task matches.
     pub fn loose_match(&self, search: &str) -> bool {
         if self
             .description
@@ -99,9 +131,12 @@ impl Task {
             }
         }
 
+        // @TODO: match to metadata keys/values
+
         false
     }
 
+    /// Returns true if the task is running
     pub fn is_running(&self) -> bool {
         if self.timetracker.is_none() {
             return false;
@@ -116,6 +151,8 @@ impl Task {
         false
     }
 
+    /// Returns current [TimeTrack] entry for the task if one is running. Returns None if time
+    /// tracking is not active.
     pub fn current_timetrack(&self) -> Option<(usize, TimeTrack)> {
         for (i, timetrack) in self.timetracker.as_ref().unwrap().iter().enumerate() {
             if timetrack.end_time.is_none() {
@@ -125,7 +162,9 @@ impl Task {
         None
     }
 
-    pub fn start(&mut self, annotation: &Option<String>) -> Result<()> {
+    /// Start time tracking for the task and return the [TimeTrack] entry
+    pub fn start(&mut self, annotation: &Option<String>) -> Result<TimeTrack> {
+        let tt: TimeTrack;
         if self.done {
             bail!(TaskError::TaskAlreadyCompleted);
         }
@@ -137,23 +176,27 @@ impl Task {
             } else {
                 timetracks = vec![];
             }
-            timetracks.push(TimeTrack {
+            tt = TimeTrack {
                 start_time: timestamp,
                 end_time: None,
                 annotation: annotation.clone(),
-            });
+            };
+            timetracks.push(tt.clone());
             self.timetracker = Some(timetracks);
         } else {
             bail!(TaskError::TaskAlreadyRunning);
         }
 
-        Ok(())
+        Ok(tt)
     }
 
-    pub fn stop(&mut self) -> Result<()> {
+    /// Stop time tracking for the task. Return the [TimeTrack] entry that was concluded.
+    pub fn stop(&mut self) -> Result<Option<TimeTrack>> {
         if self.done {
             bail!(TaskError::TaskAlreadyCompleted);
         }
+
+        let retval: Option<TimeTrack>;
 
         if self.is_running() {
             let timestamp = chrono::offset::Local::now();
@@ -161,15 +204,18 @@ impl Task {
             let mut timetracks: Vec<TimeTrack> = self.timetracker.as_ref().unwrap().to_vec();
             timetrack.end_time = Some(timestamp);
             _ = timetracks.remove(pos);
-            timetracks.insert(pos, timetrack);
+            timetracks.insert(pos, timetrack.clone());
             self.timetracker = Some(timetracks);
+            retval = Some(timetrack);
         } else {
             bail!(TaskError::TaskNotRunning);
         }
 
-        Ok(())
+        Ok(retval)
     }
 
+    /// Return the runtime (delta of start timestamp of [TimeTrack] and current timestamp) of a
+    /// running task.
     pub fn current_runtime(&self) -> Option<Duration> {
         if !self.is_running() {
             return None;
@@ -181,6 +227,7 @@ impl Task {
         Some(runtime)
     }
 
+    /// Load task YAML formatted file from the disk
     pub fn load_yaml_file_from(task_pathbuf: &PathBuf) -> Result<Self> {
         let mut file =
             File::open(task_pathbuf).with_context(|| "while opening task yaml file for reading")?;
@@ -191,6 +238,7 @@ impl Task {
             .with_context(|| "while serializing yaml into task struct")
     }
 
+    /// Save task as YAML formatted file to the disk
     pub fn save_yaml_file_to(&mut self, task_pathbuf: &PathBuf, rotate: &usize) -> Result<()> {
         // rotate existing file with same name if present
         if task_pathbuf.is_file() && rotate > &0 {
@@ -231,6 +279,7 @@ impl Task {
         Ok(())
     }
 
+    /// Mark this task as done
     pub fn mark_as_completed(&mut self) -> Result<()> {
         if self.is_running() {
             // if the task is running stop the current timetrack first to cleanup properly
@@ -249,6 +298,7 @@ impl Task {
         Ok(())
     }
 
+    // Create a new task with description only
     pub fn new(description: String) -> Self {
         let timestamp = chrono::offset::Local::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
@@ -267,16 +317,21 @@ impl Task {
         }
     }
 
+    /// Serialize the task as YAML string
     pub fn to_yaml_string(&self) -> Result<String> {
         serde_yaml::to_string(self).with_context(|| "unable to serialize task struct as yaml")
     }
 
+    /// Deserialize the task from YAML string
     pub fn from_yaml_string(input: &str) -> Result<Self> {
         let task: Task = serde_yaml::from_str(input)
             .with_context(|| "unable to deserialize yaml into task struct")?;
         Ok(task)
     }
 
+    /// Create a new task from task descriptor string
+    ///
+    /// Example: `This is a prj:Project task that has to be done. due:2022-08-01T16:00:00 prio:low meta:x-fuu=bar tag:some tag:tags tag:can tag:be tag:added`
     pub fn from_task_descriptor(input: &String) -> Result<Self> {
         if input.is_empty() {
             bail!(TaskError::TaskDescriptorEmpty);
@@ -370,6 +425,8 @@ impl Task {
         })
     }
 
+    /// Calculate the score for the task than can be used to compare urgencies of seperate tasks
+    /// and giving a priority.
     pub fn score(&self) -> Result<usize> {
         // the more "fleshed out" the task is the more higher score it should get
         let mut score: usize = 0;
@@ -449,6 +506,7 @@ impl Task {
         Ok(score)
     }
 
+    /// Remove task characteristics
     pub fn unset_characteristic(
         &mut self,
         priority: &bool,
@@ -511,6 +569,7 @@ impl Task {
         modified
     }
 
+    /// Set task characteristics
     pub fn set_characteristic(
         &mut self,
         priority: &Option<TaskPriority>,
@@ -575,16 +634,20 @@ impl Task {
     }
 }
 
+/// Construct a taskbuf that points to YAML file on disk where filename is the id
 pub fn task_pathbuf_from_id(id: &String, settings: &Settings) -> Result<PathBuf> {
     Ok(settings
         .task_db_pathbuf()?
         .join(PathBuf::from(format!("{}.yaml", id))))
 }
 
+/// Construct a taskbuf that points to YAML file on disk where the id is pulled from [Task]
+/// metadata
 pub fn task_pathbuf_from_task(task: &Task, settings: &Settings) -> Result<PathBuf> {
     task_pathbuf_from_id(&task.id.to_string(), settings)
 }
 
+/// Load task from file, identified by id
 pub fn load_task(id: &String, settings: &Settings) -> Result<Task> {
     let task_pathbuf =
         task_pathbuf_from_id(id, settings).with_context(|| "while building path of the file")?;
@@ -593,6 +656,7 @@ pub fn load_task(id: &String, settings: &Settings) -> Result<Task> {
     Ok(task)
 }
 
+/// Save task to disk, identified by the id in its metadata
 pub fn save_task(task: &mut Task, settings: &Settings) -> Result<()> {
     let task_pathbuf = task_pathbuf_from_task(task, settings)?;
     task.save_yaml_file_to(&task_pathbuf, &settings.data.rotate)
@@ -600,6 +664,7 @@ pub fn save_task(task: &mut Task, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
+/// Create a new task
 pub fn new_task(descriptor: String, settings: &Settings) -> Result<Task> {
     let mut task =
         Task::from_task_descriptor(&descriptor).with_context(|| "while parsing task descriptor")?;
@@ -619,6 +684,7 @@ pub fn new_task(descriptor: String, settings: &Settings) -> Result<Task> {
     Ok(task)
 }
 
+/// Start tracking the task, load & save the file on disk
 pub fn start_task(id: &String, annotation: &Option<String>, settings: &Settings) -> Result<Task> {
     let mut task = load_task(id, settings)?;
     task.start(annotation)
@@ -639,6 +705,7 @@ pub fn start_task(id: &String, annotation: &Option<String>, settings: &Settings)
     Ok(task)
 }
 
+/// Stop tracking the task, load & save the file on disk
 pub fn stop_task(id: &String, done: &bool, settings: &Settings) -> Result<Task> {
     let mut task = load_task(id, settings)?;
     task.stop()
@@ -653,6 +720,7 @@ pub fn stop_task(id: &String, done: &bool, settings: &Settings) -> Result<Task> 
     Ok(task)
 }
 
+/// Mark the task completed, load & save the file on disk
 pub fn complete_task(task: &mut Task, settings: &Settings) -> Result<()> {
     if task.is_running() && settings.task.stopondone {
         // task is running, so first stop it
@@ -681,6 +749,7 @@ pub fn complete_task(task: &mut Task, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
+/// Load all tasks and return the sum of tasks.
 pub fn amount_of_tasks(settings: &Settings, include_backups: bool) -> Result<usize> {
     let mut tasks: usize = 0;
     let task_pathbuf: PathBuf = task_pathbuf_from_id(&"*".to_string(), settings)?;
@@ -706,6 +775,7 @@ pub fn amount_of_tasks(settings: &Settings, include_backups: bool) -> Result<usi
     Ok(tasks)
 }
 
+/// List all tasks that match an optional search criteria
 pub fn list_tasks(
     search: &Option<String>,
     include_done: &bool,

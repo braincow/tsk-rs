@@ -1,5 +1,9 @@
 #![warn(missing_docs)]
 
+//! Task management made right and easy
+//!
+//! Command line utility for creating and managing tasks and their metadata
+
 use bat::{Input, PrettyPrinter};
 use chrono::NaiveDateTime;
 use clap::{Parser, Subcommand};
