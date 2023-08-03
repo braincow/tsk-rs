@@ -298,7 +298,7 @@ impl Task {
         Ok(())
     }
 
-    // Create a new task with description only
+    /// Create a new task with description only
     pub fn new(description: String) -> Self {
         let timestamp = chrono::offset::Local::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();

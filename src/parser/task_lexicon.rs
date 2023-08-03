@@ -24,13 +24,25 @@ enum ExpressionPrototype<'a> {
     Duedate(&'a str),
 }
 
+/// Expression components
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expression {
+    /// Description read from task definition string. Matches everything not matched elsewhere.
     Description(String),
+    /// Project component from task definition string
     Project(String),
+    /// Tag component from task definition string
     Tag(String),
-    Metadata { key: String, value: String },
+    /// Metadata key=value pair component from task definition string
+    Metadata {
+        /// Key of the metadata value
+        key: String,
+        /// Value of the metadata
+        value: String,
+    },
+    /// Priority component from task definition string
     Priority(TaskPriority),
+    /// Duedate component from task definition string
     Duedate(NaiveDateTime),
 }
 
@@ -179,12 +191,15 @@ fn parse_inline(input: &str) -> IResult<&str, Vec<ExpressionPrototype>> {
     Ok(("", output))
 }
 
+/// Errors that can happend during parsing of the task descriptor string
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum LexiconError {
+    /// There was a problem while parsing the descriptor string
     #[error("i got confused by the language")]
     ParserError(String),
 }
 
+/// Parses descriptor string based on known lexicon and returns result of elements
 pub fn parse_task(input: String) -> Result<Vec<Expression>> {
     let parsed = alt((all_consuming(parse_inline),))(&input).map(|(_, results)| results);
 
