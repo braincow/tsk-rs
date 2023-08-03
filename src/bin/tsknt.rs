@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use bat::{Input, PrettyPrinter};
 use clap::{Parser, Subcommand};
 use cli_table::{

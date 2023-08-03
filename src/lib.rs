@@ -1,7 +1,9 @@
-pub mod parser;
-pub mod task;
-pub mod settings;
-pub mod note;
+#![warn(missing_docs)]
+
 pub mod metadata;
+pub mod note;
+pub mod parser;
+pub mod settings;
+pub mod task;
 
 // eof

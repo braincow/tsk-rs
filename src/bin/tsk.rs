@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use bat::{Input, PrettyPrinter};
 use chrono::NaiveDateTime;
 use clap::{Parser, Subcommand};
