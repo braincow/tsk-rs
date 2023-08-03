@@ -20,16 +20,22 @@ use crate::{
     task::{load_task, task_pathbuf_from_id, Task},
 };
 
+/// Errors that can happen during Note handling
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum NoteError {
+    /// [ActionPoint] parsing error from note
     #[error("error while parsing action points")]
     ActionPointParseError,
 }
 
+/// Note abstraction
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Note {
+    /// Unique identifier of the Note. Usually identical with the task this note belongs to.
     pub task_id: Uuid,
+    /// Markdown formatted string that contains the notes
     pub markdown: Option<String>,
+    /// Metadata for the note
     pub metadata: BTreeMap<String, String>,
 }
 
@@ -40,6 +46,7 @@ impl Display for Note {
 }
 
 impl Note {
+    /// Create a new note
     pub fn new(task_id: &Uuid) -> Self {
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         let timestamp = chrono::offset::Local::now();
@@ -55,14 +62,17 @@ impl Note {
         }
     }
 
+    /// Serialize note from YAML string
     pub fn from_yaml_string(yaml_string: &str) -> Result<Self> {
         serde_yaml::from_str(yaml_string).with_context(|| "while deserializing note yaml string")
     }
 
+    /// Deserialize note as YAML string
     pub fn to_yaml_string(&self) -> Result<String> {
         serde_yaml::to_string(self).with_context(|| "while serializing note struct as YAML")
     }
 
+    /// Load task from YAML file at disk
     pub fn load_yaml_file_from(note_pathbuf: &PathBuf) -> Result<Self> {
         let note: Note;
         {
@@ -77,6 +87,7 @@ impl Note {
         Ok(note)
     }
 
+    /// Save task as YAML file to the disk
     pub fn save_yaml_file_to(&mut self, note_pathbuf: &PathBuf, rotate: &usize) -> Result<()> {
         // rotate existing file with same name if present
         if note_pathbuf.is_file() && rotate > &0 {
@@ -117,6 +128,7 @@ impl Note {
         Ok(())
     }
 
+    /// Parse action points from the Markdown formatted string which is the note itself
     pub fn get_action_points(&self) -> Result<Option<Vec<ActionPoint>>> {
         if let Some(markdown_body) = self.markdown.clone() {
             let parse_result = markdown::to_mdast(&markdown_body, &markdown::ParseOptions::gfm());
@@ -129,6 +141,7 @@ impl Note {
         Ok(None)
     }
 
+    /// Set characterists for the note e.g metadata
     pub fn set_characteristic(&mut self, metadata: &Option<Vec<MetadataKeyValuePair>>) -> bool {
         let mut modified = false;
 
@@ -143,6 +156,7 @@ impl Note {
         modified
     }
 
+    /// Unset characteristics for the note e.g metadata
     pub fn unset_characteristic(&mut self, metadata: &Option<Vec<String>>) -> bool {
         let mut modified = false;
 
@@ -200,23 +214,30 @@ fn parse_md_component(task_id: &Uuid, node: &Node) -> Result<Option<Vec<ActionPo
     }
 }
 
+/// ActionPoint abstraction
 #[derive(Debug)]
 pub struct ActionPoint {
+    /// Unique id of this action point
     pub id: Uuid,
+    /// Description parsed from the Markdown syntax next to the checkbox
     pub description: String,
+    /// Is the action point completed aka is the Markdown checkbox checked?
     pub checked: bool,
 }
 
+/// Get the note files path based on an ID string
 pub fn note_pathbuf_from_id(id: &String, settings: &Settings) -> Result<PathBuf> {
     Ok(settings
         .note_db_pathbuf()?
         .join(PathBuf::from(format!("{}.yaml", id))))
 }
 
+/// Get the note files path based on the ID of a Note
 pub fn note_pathbuf_from_note(note: &Note, settings: &Settings) -> Result<PathBuf> {
     note_pathbuf_from_id(&note.task_id.to_string(), settings)
 }
 
+/// Read note from the disk
 pub fn load_note(id: &String, settings: &Settings) -> Result<Note> {
     let note_pathbuf =
         note_pathbuf_from_id(id, settings).with_context(|| "while building path of the file")?;
@@ -225,6 +246,7 @@ pub fn load_note(id: &String, settings: &Settings) -> Result<Note> {
     Ok(note)
 }
 
+/// Save note to the disk
 pub fn save_note(note: &mut Note, settings: &Settings) -> Result<()> {
     let note_pathbuf = note_pathbuf_from_note(note, settings)?;
     note.save_yaml_file_to(&note_pathbuf, &settings.data.rotate)
@@ -232,11 +254,15 @@ pub fn save_note(note: &mut Note, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
+/// Abstraction for the link between note and the task the note belongs to (if any)
 pub struct FoundNote {
+    /// Note that reflects the note
     pub note: Note,
+    /// Optional task (if not deleted and therefore existing one) the note belongs to.
     pub task: Option<Task>,
 }
 
+/// Get the amount of notes on disk
 pub fn amount_of_notes(settings: &Settings, include_backups: bool) -> Result<usize> {
     let mut notes: usize = 0;
     let task_pathbuf: PathBuf = note_pathbuf_from_id(&"*".to_string(), settings)?;
@@ -262,6 +288,7 @@ pub fn amount_of_notes(settings: &Settings, include_backups: bool) -> Result<usi
     Ok(notes)
 }
 
+/// List notes stored on disk based on a search criteria
 pub fn list_notes(
     id: &Option<String>,
     orphaned: &bool,
