@@ -77,6 +77,7 @@ impl Default for OutputSettings {
 }
 
 /// Note spesific settings
+#[cfg(feature = "note")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NoteSettings {
@@ -88,6 +89,7 @@ pub struct NoteSettings {
     pub timestamp: bool,
 }
 
+#[cfg(feature = "note")]
 impl Default for NoteSettings {
     fn default() -> Self {
         Self {
@@ -134,6 +136,7 @@ pub struct Settings {
     pub namespace: String,
     /// Settings related to data storage
     pub data: DataSettings,
+    #[cfg(feature = "note")]
     /// Settings related to notes only
     pub note: NoteSettings,
     /// Settings related to tasks only
@@ -192,6 +195,7 @@ impl Settings {
     }
 
     /// Return the subpath where note files are stored in under the dbpath
+    #[cfg(feature = "note")]
     pub fn note_db_pathbuf(&self) -> Result<PathBuf> {
         let pathbuf = &self.db_pathbuf()?.join("notes");
         if !pathbuf.is_dir() && self.data.createdir {

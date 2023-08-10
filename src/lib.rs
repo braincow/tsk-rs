@@ -8,6 +8,7 @@
 pub mod metadata;
 
 /// Note abstractions
+#[cfg(feature = "note")]
 pub mod note;
 
 /// Parser for task notation describing the task and its metadata in a single line of text
