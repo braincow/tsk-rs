@@ -1,6 +1,6 @@
 [package]
 name = "tsk-rs"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Antti Peltonen <antti.peltonen@iki.fi>"]
 description = "A task manager"
@@ -10,6 +10,7 @@ readme = "README.md"
 
 # Define the feature
 [features]
+default = ["note"]
 note = ["markdown", "termtree"]
 
 # Specify the default binary, this is always built
