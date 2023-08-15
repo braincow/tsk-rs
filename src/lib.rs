@@ -20,4 +20,7 @@ pub mod settings;
 /// Task abtsractions
 pub mod task;
 
+/// Namespace utilities
+pub mod namespace;
+
 // eof
