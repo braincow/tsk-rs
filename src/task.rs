@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use simple_file_rotation::FileRotation;
 use std::{
     collections::BTreeMap,
-    fmt::Display,
     fs::File,
     io::{Read, Write},
     path::PathBuf,
@@ -97,12 +96,6 @@ pub struct Task {
     pub metadata: BTreeMap<String, String>,
     /// List of optional [TimeTrack] entries.
     pub timetracker: Option<Vec<TimeTrack>>,
-}
-
-impl Display for Task {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_yaml_string().unwrap())
-    }
 }
 
 impl Task {
@@ -323,7 +316,11 @@ impl Task {
     }
 
     /// Serialize the task as YAML string
-    pub fn to_yaml_string(&self) -> Result<String> {
+    pub fn to_yaml_string(&mut self) -> Result<String> {
+        // Calculate the score into metadata
+        let score = self.score().with_context(|| "error during task score refresh into metadata")?;
+        self.metadata.insert("tsk-rs-task-score".to_owned(), format!("{}", score));
+
         serde_yaml::to_string(self).with_context(|| "unable to serialize task struct as yaml")
     }
 

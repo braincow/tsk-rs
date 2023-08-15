@@ -407,7 +407,7 @@ fn cli_stop_task(id: &String, done: &bool, settings: &Settings) -> Result<()> {
 }
 
 fn show_task(id: &String, settings: &Settings) -> Result<()> {
-    let task = load_task(id, settings)?;
+    let mut task = load_task(id, settings)?;
     let task_yaml = task.to_yaml_string()?;
 
     PrettyPrinter::new()
