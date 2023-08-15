@@ -441,7 +441,7 @@ impl Task {
 
     /// Calculate the score for the task than can be used to compare urgencies of seperate tasks
     /// and giving a priority.
-    pub fn score(&self) -> Result<usize> {
+    fn score(&self) -> Result<usize> {
         // the more "fleshed out" the task is the more higher score it should get
         let mut score: usize = 0;
 

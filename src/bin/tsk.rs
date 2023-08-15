@@ -260,8 +260,11 @@ fn cli_list_tasks(search: &Option<String>, include_done: &bool, settings: &Setti
             "[stopped]".to_string()
         };
         let mut cell_color: Option<Color> = None;
+        let default_score = "0".to_string();
+        let scorestr = found_task.metadata.get("tsk-rs-task-score").unwrap_or(&default_score);
+        let score = scorestr.parse::<usize>().with_context(|| "error while converting score to number")?;
         if settings.output.colors {
-            cell_color = match found_task.score()? {
+            cell_color = match score {
                 7..=12 => Some(Color::Green),
                 13..=18 => Some(Color::Yellow),
                 n if n >= 19 => Some(Color::Red),
@@ -303,7 +306,7 @@ fn cli_list_tasks(search: &Option<String>, include_done: &bool, settings: &Setti
                 .unwrap_or_else(|| "".to_string())
                 .cell()
                 .foreground_color(cell_color),
-            found_task.score()?.cell().foreground_color(cell_color),
+            score.cell().foreground_color(cell_color),
             runtime_str.cell().foreground_color(cell_color),
         ]);
     }
