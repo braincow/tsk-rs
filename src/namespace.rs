@@ -15,6 +15,7 @@ pub struct Namespace {
 pub fn list_namespaces(settings: &Settings) -> Result<Vec<Namespace>> {
     let mut namespaces: Vec<Namespace> = vec![];
 
+    // search available namespaces from filesystem
     for entry in fs::read_dir(settings.data.path.clone()).with_context(|| "error while scanning database directory for namespaces")? {
         let entry = entry?;
         if entry.metadata()?.is_dir() {
@@ -22,6 +23,13 @@ pub fn list_namespaces(settings: &Settings) -> Result<Vec<Namespace>> {
             let is_current = if name == settings.namespace { true } else { false };
             namespaces.push(Namespace { is_current, name });
         }
+    }
+
+    // if no namespaces found, add the default one and set it active
+    if namespaces.len() == 0 {
+        namespaces.push(
+            Namespace { name: "default".into(), is_current: true }
+        );
     }
 
     Ok(namespaces)
