@@ -299,14 +299,14 @@ impl Task {
     }
 
     /// Create a new task with description only
-    pub fn new(description: String) -> Self {
+    pub fn new(description: String) -> Result<Self> {
         let timestamp = chrono::offset::Local::now();
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();
         metadata.insert(
             String::from("tsk-rs-task-create-time"),
             timestamp.to_rfc3339(),
         );
-        Self {
+        let mut task = Task {
             id: Uuid::new_v4(),
             description,
             done: false,
@@ -314,7 +314,12 @@ impl Task {
             tags: None,
             metadata,
             timetracker: None,
-        }
+        };
+        // Calculate the score into metadata
+        let score = task.score().with_context(|| "error during task score insert into metadata")?;
+        task.metadata.insert("tsk-rs-task-score".to_owned(), format!("{}", score));
+        
+        Ok(task)
     }
 
     /// Serialize the task as YAML string
@@ -324,8 +329,11 @@ impl Task {
 
     /// Deserialize the task from YAML string
     pub fn from_yaml_string(input: &str) -> Result<Self> {
-        let task: Task = serde_yaml::from_str(input)
+        let mut task: Task = serde_yaml::from_str(input)
             .with_context(|| "unable to deserialize yaml into task struct")?;
+        // Recalculate the score into metadata
+        let score = task.score().with_context(|| "error during task score refresh into metadata")?;
+        task.metadata.insert("tsk-rs-task-score".to_owned(), format!("{}", score));
         Ok(task)
     }
 
@@ -414,7 +422,7 @@ impl Task {
             timestamp.to_rfc3339(),
         );
 
-        Ok(Self {
+        let mut task = Task {
             id: Uuid::new_v4(),
             description,
             done: false,
@@ -422,7 +430,13 @@ impl Task {
             metadata,
             project: ret_project,
             timetracker: None,
-        })
+        };
+
+        // Calculate the score into metadata
+        let score = task.score().with_context(|| "error during task score insert into metadata")?;
+        task.metadata.insert("tsk-rs-task-score".to_owned(), format!("{}", score));
+
+        Ok(task)
     }
 
     /// Calculate the score for the task than can be used to compare urgencies of seperate tasks
@@ -870,7 +884,7 @@ mod tests {
 
         let yaml_string = task.to_yaml_string().unwrap();
         assert_eq!(yaml_string,
-            format!("id: {}\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  x-fuu: {}\n  x-meta: {}\ntimetracker: null\n",
+            format!("id: {}\ndescription: {}\ndone: false\nproject: {}\ntags:\n- {}\n- {}\nmetadata:\n  tsk-rs-task-create-time: {}\n  tsk-rs-task-score: '7'\n  x-fuu: {}\n  x-meta: {}\ntimetracker: null\n",
                 task.id,
                 task.description,
                 task.project.unwrap(),
