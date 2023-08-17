@@ -23,4 +23,7 @@ pub mod task;
 /// Namespace utilities
 pub mod namespace;
 
+/// Tag management utilities
+pub mod tag;
+
 // eof
