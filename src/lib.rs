@@ -29,4 +29,8 @@ pub mod tag;
 /// Project management utilities
 pub mod project;
 
+/// Async database watchers through notify crate
+#[cfg(feature = "notify")]
+pub mod notify;
+
 // eof
