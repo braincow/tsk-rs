@@ -26,4 +26,7 @@ pub mod namespace;
 /// Tag management utilities
 pub mod tag;
 
+/// Project management utilities
+pub mod project;
+
 // eof

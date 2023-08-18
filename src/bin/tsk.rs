@@ -167,8 +167,10 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
     },
-    /// Output an tags list and how many times an tag is used
-    Tags
+    /// Output tags list and how many times an tag is used
+    Tags,
+    /// Output projects list and how many times an project is used
+    Projects,
 }
 
 fn main() -> Result<()> {
@@ -236,7 +238,8 @@ fn main() -> Result<()> {
             &None,
             &settings,
         ),
-        Some(Commands::Tags {}) => cli_list_tags(&settings),
+        Some(Commands::Tags) => cli_list_tags(&settings),
+        Some(Commands::Projects) => cli_list_projects(&settings),
         None => cli_list_tasks(&None, &false, &settings),
     }
 }
@@ -272,6 +275,45 @@ fn cli_list_tags(settings: &Settings) -> Result<()> {
 
         if settings.output.totals {
             println!("\n Number of tags: {}", found_tags_count);
+        }
+    } else {
+        println!("No tags");
+    }
+
+    Ok(())
+}
+
+fn cli_list_projects(settings: &Settings) -> Result<()> {
+    let projects = scan_tags(settings)
+        .with_context(|| "error while querying tags")?;
+
+    let mut project_cells = vec![];
+    let mut found_projects_count = 0;
+
+    for project in projects {
+        found_projects_count += 1;
+
+        project_cells.push(vec![
+            project.0.cell(),
+            project.1.cell(),
+        ]);
+    }
+
+    if !project_cells.is_empty() {
+        let projects_table = project_cells
+            .table()
+            .title(vec![
+                "Project".cell().bold(true).underline(true),
+                "Count".cell().bold(true).underline(true),
+            ]) // headers of the table
+            .border(Border::builder().build())
+            .separator(Separator::builder().build()); // empty border around the table
+
+        print_stdout(projects_table)
+            .with_context(|| "while trying to print out pretty table of project(s)")?;
+
+        if settings.output.totals {
+            println!("\n Number of projects: {}", found_projects_count);
         }
     } else {
         println!("No tags");
