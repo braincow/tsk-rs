@@ -145,6 +145,12 @@ pub struct Settings {
     pub output: OutputSettings,
 }
 
+impl AsRef<Settings> for Settings {
+    fn as_ref(&self) -> &Settings {
+        self
+    }
+}
+
 impl Display for Settings {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", toml::to_string(&self).unwrap())
