@@ -22,7 +22,7 @@ use tsk_rs::{
     task::{
         amount_of_tasks, list_tasks, load_task, new_task, save_task, start_task, stop_task,
         task_pathbuf_from_task, Task, TaskPriority,
-    },
+    }, tag::scan_tags,
 };
 
 #[derive(Parser)]
@@ -167,6 +167,8 @@ enum Commands {
         #[clap(value_parser)]
         id: String,
     },
+    /// Output an tags list and how many times an tag is used
+    Tags
 }
 
 fn main() -> Result<()> {
@@ -234,8 +236,48 @@ fn main() -> Result<()> {
             &None,
             &settings,
         ),
+        Some(Commands::Tags {}) => cli_list_tags(&settings),
         None => cli_list_tasks(&None, &false, &settings),
     }
+}
+
+fn cli_list_tags(settings: &Settings) -> Result<()> {
+    let tags = scan_tags(settings)
+        .with_context(|| "error while querying tags")?;
+
+    let mut tag_cells = vec![];
+    let mut found_tags_count = 0;
+
+    for tag in tags {
+        found_tags_count += 1;
+
+        tag_cells.push(vec![
+            tag.0.cell(),
+            tag.1.cell(),
+        ]);
+    }
+
+    if !tag_cells.is_empty() {
+        let tags_table = tag_cells
+            .table()
+            .title(vec![
+                "Tag".cell().bold(true).underline(true),
+                "Count".cell().bold(true).underline(true),
+            ]) // headers of the table
+            .border(Border::builder().build())
+            .separator(Separator::builder().build()); // empty border around the table
+
+        print_stdout(tags_table)
+            .with_context(|| "while trying to print out pretty table of tag(s)")?;
+
+        if settings.output.totals {
+            println!("\n Number of tags: {}", found_tags_count);
+        }
+    } else {
+        println!("No tags");
+    }
+
+    Ok(())
 }
 
 fn cli_new_task(descriptor: String, settings: &Settings) -> Result<()> {
