@@ -4,12 +4,41 @@
 //!
 //! Command line utility for watching changes in tasks and notes
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, Result};
 use dotenv::dotenv;
-use tsk_rs::{settings::{Settings, default_config, show_config}, notify::{FilesystemMonitor, DatabaseFileType}, task::{Task, load_task}, note::Note};
+use tsk_rs::{settings::{Settings, default_config, show_config}, notify::{FilesystemMonitor, DatabaseFileType, FileHandler}, task::{Task, load_task}, note::Note};
+
+#[derive(Default)]
+struct EventHandler;
+
+impl FileHandler for EventHandler {
+    fn handle(&self, file: DatabaseFileType, settings: Settings) {
+        #[cfg(debug_assertions)]
+        println!("file changed: {:?}", file);
+        match file {
+            DatabaseFileType::Task(_id) => {
+                match Task::from_notify_event(file, &settings) {
+                    Ok(task) => println!("[ Update for a task ] {}", task.description),
+                    Err(error) => eprintln!("{:?}", error)
+                };
+            },
+            DatabaseFileType::Note(_id) => {
+                match Note::from_notify_event(file, &settings) {
+                    Ok(note) => {
+                        match load_task(&note.task_id.to_string(), &settings) {
+                            Ok(task) => println!("[Update for a task note] {}", task.description),
+                            Err(error) => eprintln!("{:?}", error)
+                        };        
+                    },
+                    Err(error) => eprintln!("{:?}", error)
+                };
+            }
+        };    
+    }
+}
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -64,8 +93,10 @@ fn watch(settings: &Settings) -> Result<()> {
     // start monitoring the database folder for changes
     println!("Watching for task and note changes, CTRL+C to quit ...");
 
+    let handler = EventHandler::default();
+
     let mut monitor = FilesystemMonitor::new();
-    monitor.watch(settings, on_watch_change, on_watch_error);
+    monitor.watch(settings, Arc::new(handler), on_watch_error);
 
     Ok(())
 }
@@ -73,30 +104,6 @@ fn watch(settings: &Settings) -> Result<()> {
 fn on_watch_error(msg: String) {
     eprintln!("Error: {}", msg);
     std::process::exit(2);
-}
-
-fn on_watch_change(event: DatabaseFileType, settings: Settings) {
-    #[cfg(debug_assertions)]
-    println!("file changed: {:?}", event);
-    match event {
-        DatabaseFileType::Task(_id) => {
-            match Task::from_notify_event(event, &settings) {
-                Ok(task) => println!("[ Update for a task ] {}", task.description),
-                Err(error) => eprintln!("{:?}", error)
-            };
-        },
-        DatabaseFileType::Note(_id) => {
-            match Note::from_notify_event(event, &settings) {
-                Ok(note) => {
-                    match load_task(&note.task_id.to_string(), &settings) {
-                        Ok(task) => println!("[Update for a task note] {}", task.description),
-                        Err(error) => eprintln!("{:?}", error)
-                    };        
-                },
-                Err(error) => eprintln!("{:?}", error)
-            };
-        }
-    };
 }
 
 // eof

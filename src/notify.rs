@@ -2,7 +2,7 @@ use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use uuid::Uuid;
 use std::str::FromStr;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 use crate::settings::Settings;
@@ -16,6 +16,12 @@ pub enum DatabaseFileType {
     Task(Uuid),
     /// Modified file was a Note file. Enum contains filename and path.
     Note(Uuid)
+}
+
+/// Handler structs implement this trait
+pub trait FileHandler: Send + Sync {
+    /// Handler struct needs to implement this function
+    fn handle(&self, file: DatabaseFileType, settings: Settings);
 }
 
 /// Function type for change callback.
@@ -36,12 +42,17 @@ impl FilesystemMonitor {
     }
 
     /// Watch the database path for changes
-    pub fn watch<S: AsRef<Settings> + Clone>(
+    pub fn watch<S>(
         &mut self,
-        settings_ref: S,
-        on_change: ChangeCallback,
+        settings_ref: &S,
+        handler: Arc<dyn FileHandler>,
         on_error: ErrorCallback,
-    ) {
+    ) 
+    where
+        S: AsRef<Settings> + Clone,
+    {
+        let handler = Arc::new(handler); // Wrap in Arc for shared ownership
+
         let settings = settings_ref.as_ref().clone(); // cast the settings here from behind the shared reference, thread safety trickery
         #[cfg(debug_assertions)]
         println!("{:?}", settings);
@@ -95,9 +106,9 @@ impl FilesystemMonitor {
                                         let dbfile_uuid = Uuid::from_str(filename_stem).unwrap(); // TODO: fix unwraps
                                         // then try to match the path of the db file to subpath to determine the type
                                         if pathname_string == task_db_path_str {
-                                            on_change(DatabaseFileType::Task(dbfile_uuid), settings.clone());
+                                            Arc::clone(&handler).handle(DatabaseFileType::Task(dbfile_uuid), settings.clone());
                                         } else if pathname_string == note_db_path_str {
-                                            on_change(DatabaseFileType::Note(dbfile_uuid), settings.clone());
+                                            Arc::clone(&handler).handle(DatabaseFileType::Note(dbfile_uuid), settings.clone());
                                         } else {
                                             on_error(format!("file changed in flatfile database, but its neither a Task or a Note: {filename_string}"));
                                         }
