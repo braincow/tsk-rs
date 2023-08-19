@@ -68,7 +68,7 @@ enum Commands {
         #[clap(short, long, value_parser)]
         raw: bool,
     },
-    /// Ddelete a note
+    /// Delete a note
     Delete {
         /// Existing task/note id
         #[clap(value_parser)]
