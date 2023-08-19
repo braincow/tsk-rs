@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, Result};
 use dotenv::dotenv;
-use tsk_rs::{settings::{Settings, default_config, show_config}, notify::{FilesystemMonitor, DatabaseFileType}, task::Task};
+use tsk_rs::{settings::{Settings, default_config, show_config}, notify::{FilesystemMonitor, DatabaseFileType}, task::{Task, load_task}, note::Note};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -75,13 +75,26 @@ fn on_watch_error(msg: String) {
     std::process::exit(2);
 }
 
-fn on_watch_change(file: DatabaseFileType) {
+fn on_watch_change(event: DatabaseFileType, settings: Settings) {
     #[cfg(debug_assertions)]
-    println!("file changed: {:?}", file);
-    match file {
+    println!("file changed: {:?}", event);
+    match event {
         DatabaseFileType::Task(_id) => {
+            match Task::from_notify_event(event, &settings) {
+                Ok(task) => println!("[ Update for a task ] {}", task.description),
+                Err(error) => eprintln!("{:?}", error)
+            };
         },
         DatabaseFileType::Note(_id) => {
+            match Note::from_notify_event(event, &settings) {
+                Ok(note) => {
+                    match load_task(&note.task_id.to_string(), &settings) {
+                        Ok(task) => println!("[Update for a task note] {}", task.description),
+                        Err(error) => eprintln!("{:?}", error)
+                    };        
+                },
+                Err(error) => eprintln!("{:?}", error)
+            };
         }
     };
 }

@@ -7,7 +7,7 @@ use std::{fmt::Display, fs::create_dir_all, path::PathBuf};
 use thiserror::Error;
 
 /// Errors that can occur during settings handling
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum SettingsError {
     /// Data directory where tasks and notes are stored does not exist
     #[error("data directory does not exist, and createdir is set to false")]
@@ -15,7 +15,7 @@ pub enum SettingsError {
 }
 
 /// Task spesific settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct TaskSettings {
     /// If true special tag "hold" is removed from the task when time tracking is started
@@ -46,7 +46,7 @@ impl Default for TaskSettings {
 }
 
 /// Client binary output settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct OutputSettings {
     /// Use colored output?
@@ -78,7 +78,7 @@ impl Default for OutputSettings {
 
 /// Note spesific settings
 #[cfg(feature = "note")]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct NoteSettings {
     /// If true then when note is created for an task the description of the Task is set as
@@ -100,7 +100,7 @@ impl Default for NoteSettings {
 }
 
 /// Settings related to the the data storage path and handling
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct DataSettings {
     /// Path under which the task and note files are created. If not spesified system default is
@@ -126,7 +126,7 @@ impl Default for DataSettings {
 }
 
 /// Client tool settings
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct Settings {
     #[serde(skip_serializing)]
