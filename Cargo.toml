@@ -14,16 +14,22 @@ notify = ["dep:notify", "dep:notify-debouncer-mini", "dep:regex"]
 default = ["note"]
 note = ["dep:markdown", "dep:termtree"]
 
-# Specify the default binary, this is always built
+# tsk command
 [[bin]]
 name = "tsk"
 path = "src/bin/tsk.rs"
 
-# Specify the second binary, and set the required feature
+# tsknt command
 [[bin]]
 name = "tsknt"
 path = "src/bin/tsknt.rs"
 required-features = ["note"]
+
+# tskmon command
+[[bin]]
+name = "tskmon"
+path = "src/bin/tskmon.rs"
+required-features = ["notify"]
 
 [dependencies]
 color-eyre = "0.6.2"
