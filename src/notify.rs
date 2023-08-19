@@ -1,5 +1,7 @@
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
+use uuid::Uuid;
+use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -10,9 +12,9 @@ use regex::Regex;
 #[derive(Debug)]
 pub enum DatabaseFileType {
     /// Modified file was a Task file. Enum contains filename and path.
-    Task(String),
+    Task(Uuid),
     /// Modified file was a Note file. Enum contains filename and path.
-    Note(String)
+    Note(Uuid)
 }
 
 /// Function type for change callback.
@@ -78,15 +80,17 @@ impl FilesystemMonitor {
                                         // not a file, loop to next iteration
                                         break;
                                     }
-                                    let filename_string = path.file_name().unwrap().to_str().unwrap();
-                                    let pathname_string = path.parent().unwrap().to_str().unwrap();
-                                    // only act if the change is for a yaml file
+                                    let filename_string = path.file_name().unwrap().to_str().unwrap(); // TODO: fix unwraps
+                                    let filename_stem = path.file_stem().unwrap().to_str().unwrap(); // TODO: fix unwraps
+                                    let pathname_string = path.parent().unwrap().to_str().unwrap(); // TODO: fix unwraps
+                                    // only act if the change is for a flatfile yaml, not a rotated one or any other type we dont care about here
                                     if re.is_match(filename_string) {
+                                        let dbfile_uuid = Uuid::from_str(filename_stem).unwrap(); // TODO: fix unwraps
                                         // then try to match the path of the db file to subpath to determine the type
                                         if pathname_string == task_db_path_str {
-                                            on_change(DatabaseFileType::Task(filename_string.to_string()));
+                                            on_change(DatabaseFileType::Task(dbfile_uuid));
                                         } else if pathname_string == note_db_path_str {
-                                            on_change(DatabaseFileType::Note(filename_string.to_string()));
+                                            on_change(DatabaseFileType::Note(dbfile_uuid));
                                         } else {
                                             on_error(format!("file changed in flatfile database, but its neither a Task or a Note: {filename_string}"));
                                         }
