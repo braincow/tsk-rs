@@ -1,6 +1,8 @@
-use notify::{RecursiveMode, recommended_watcher, Watcher};
+use notify::RecursiveMode;
+use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 use crate::settings::Settings;
 use regex::Regex;
 
@@ -49,11 +51,12 @@ impl FilesystemMonitor {
             // Create a channel to receive the events.
             let (tx, rx) = mpsc::channel();
 
-            let mut watcher = recommended_watcher(tx).unwrap();
+            // No specific tickrate, max debounce time 2 seconds
+            let mut debouncer = new_debouncer(Duration::from_secs(2), None, tx).unwrap();
 
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
-            if let Err(e) = watcher.watch(&path, RecursiveMode::Recursive) {
+            if let Err(e) = debouncer.watcher().watch(&path, RecursiveMode::Recursive) {
                 on_error(format!("Error watching path: {}", e));
                 return;
             }
@@ -62,11 +65,18 @@ impl FilesystemMonitor {
                 match rx.recv() {
                     Ok(event) => {
                         match event {
-                            Ok(event) => {
-                                for path in event.paths {
+                            Ok(events) => {
+                                for event in events {
+                                    #[cfg(debug_assertions)]
+                                    println!("{:?}", event);
+                                    if event.kind != DebouncedEventKind::Any {
+                                        // not a creation of file, but most likely a continuation of the rotation mechanism
+                                        break;
+                                    }
+                                    let path = event.path;
                                     if !path.is_file() {
                                         // not a file, loop to next iteration
-                                        continue;
+                                        break;
                                     }
                                     let filename_string = path.file_name().unwrap().to_str().unwrap();
                                     let pathname_string = path.parent().unwrap().to_str().unwrap();
