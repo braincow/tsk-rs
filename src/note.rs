@@ -20,12 +20,19 @@ use crate::{
     task::{load_task, task_pathbuf_from_id, Task},
 };
 
+#[cfg(feature = "notify")]
+use crate::notify::DatabaseFileType;
+
 /// Errors that can happen during Note handling
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum NoteError {
     /// [ActionPoint] parsing error from note
     #[error("error while parsing action points")]
     ActionPointParseError,
+    /// Conversion error from notify event kind. Needs to be Note for Note.
+    #[cfg(feature = "notify")]
+    #[error("notifier result kind is not for a Note")]
+    IncompatibleNotifyKind,
 }
 
 /// Note abstraction
@@ -46,6 +53,15 @@ impl Display for Note {
 }
 
 impl Note {
+    /// Instantiate note by loading it from disk based on notifier event
+    #[cfg(feature = "notify")]
+    pub fn from_notify_event(event: DatabaseFileType, settings: &Settings) -> Result<Note> {
+        match event {
+            DatabaseFileType::Note(uuid) => load_note(&uuid.to_string(), settings),
+            _ => bail!(NoteError::IncompatibleNotifyKind)
+        }
+    }
+
     /// Create a new note
     pub fn new(task_id: &Uuid) -> Self {
         let mut metadata: BTreeMap<String, String> = BTreeMap::new();

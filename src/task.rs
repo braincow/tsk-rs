@@ -20,6 +20,9 @@ use strum::{EnumString, IntoStaticStr};
 use thiserror::Error;
 use uuid::Uuid;
 
+#[cfg(feature = "notify")]
+use crate::notify::DatabaseFileType;
+
 /// Available priorities for a task
 /// Each priority level has an different effect to the overall urgency level calculations
 #[derive(EnumString, IntoStaticStr, clap::ValueEnum, Clone, Eq, PartialEq, Debug)]
@@ -64,6 +67,10 @@ pub enum TaskError {
     /// Task descriptor was empty
     #[error("task descriptor cant be an empty string")]
     TaskDescriptorEmpty,
+    /// Conversion error from notify event kind. Needs to be Task for Task.
+    #[cfg(feature = "notify")]
+    #[error("notifier result kind is not for a Task")]
+    IncompatibleNotifyKind,
 }
 
 /// Time track entry holds information about a span of time while the task was/is being worked on.
@@ -99,6 +106,15 @@ pub struct Task {
 }
 
 impl Task {
+    /// Instantiate task by loading it from disk based on notifier event
+    #[cfg(feature = "notify")]
+    pub fn from_notify_event(event: DatabaseFileType, settings: &Settings) -> Result<Task> {
+        match event {
+            DatabaseFileType::Task(uuid) => load_task(&uuid.to_string(), settings),
+            _ => bail!(TaskError::IncompatibleNotifyKind)
+        }
+    }
+
     /// Search the task with a string and try to match it to available information. Return true if
     /// the task matches.
     pub fn loose_match(&self, search: &str) -> bool {
