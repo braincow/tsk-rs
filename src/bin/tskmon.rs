@@ -4,7 +4,7 @@
 //!
 //! Command line utility for watching changes in tasks and notes
 
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Context, Result};
@@ -96,7 +96,7 @@ fn watch(settings: &Settings) -> Result<()> {
     let handler = EventHandler::default();
 
     let mut monitor = FilesystemMonitor::new();
-    monitor.watch(settings, Arc::new(handler), on_watch_error);
+    monitor.watch(settings, Arc::new(Mutex::new(handler)), on_watch_error);
 
     Ok(())
 }

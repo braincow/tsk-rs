@@ -2,7 +2,7 @@ use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use uuid::Uuid;
 use std::str::FromStr;
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use crate::settings::Settings;
@@ -45,7 +45,7 @@ impl FilesystemMonitor {
     pub fn watch<S>(
         &mut self,
         settings_ref: &S,
-        handler: Arc<dyn FileHandler>,
+        handler: Arc<Mutex<dyn FileHandler>>,
         on_error: ErrorCallback,
     ) 
     where
@@ -106,9 +106,9 @@ impl FilesystemMonitor {
                                         let dbfile_uuid = Uuid::from_str(filename_stem).unwrap(); // TODO: fix unwraps
                                         // then try to match the path of the db file to subpath to determine the type
                                         if pathname_string == task_db_path_str {
-                                            Arc::clone(&handler).handle(DatabaseFileType::Task(dbfile_uuid), settings.clone());
+                                            Arc::clone(&handler).lock().unwrap().handle(DatabaseFileType::Task(dbfile_uuid), settings.clone()); // TODO: fix the unwrap
                                         } else if pathname_string == note_db_path_str {
-                                            Arc::clone(&handler).handle(DatabaseFileType::Note(dbfile_uuid), settings.clone());
+                                            Arc::clone(&handler).lock().unwrap().handle(DatabaseFileType::Note(dbfile_uuid), settings.clone()); // TODO: fix the unwrap
                                         } else {
                                             on_error(format!("file changed in flatfile database, but its neither a Task or a Note: {filename_string}"));
                                         }
