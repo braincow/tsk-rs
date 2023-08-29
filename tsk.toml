@@ -25,5 +25,6 @@ path = "test_data"          # if uncommented defaults to users data directory in
 #namespace = true           # make namespace visible during execution
 #descriptionlength = 60     # maximum number of characters to show in listings for description before it is truncated
 #totals = true              # show total number of entries in listings
+#scoremultiplier = 1.0      # to adjust the weight of internal score calculation result for each task to display
 
 # eof

@@ -346,7 +346,9 @@ fn cli_list_tasks(search: &Option<String>, include_done: &bool, settings: &Setti
         let mut cell_color: Option<Color> = None;
         let default_score = "0".to_string();
         let scorestr = found_task.metadata.get("tsk-rs-task-score").unwrap_or(&default_score);
-        let score = scorestr.parse::<usize>().with_context(|| "error while converting score to number")?;
+        let mut score = scorestr.parse::<usize>().with_context(|| "error while converting score to number")?;
+        // adjust the score with user configurable multiplier
+        score = (score as f64 * settings.output.scoremultiplier) as usize;
         if settings.output.colors {
             cell_color = match score {
                 7..=12 => Some(Color::Green),

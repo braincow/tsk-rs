@@ -61,6 +61,8 @@ pub struct OutputSettings {
     pub descriptionlength: usize,
     /// Calculates totals and display them in task/note listings
     pub totals: bool,
+    /// Score multiplier that can be used to adjust the weight given by score algorithm
+    pub scoremultiplier: f64,
 }
 
 impl Default for OutputSettings {
@@ -72,6 +74,7 @@ impl Default for OutputSettings {
             namespace: true,
             descriptionlength: 60,
             totals: true,
+            scoremultiplier: 1.0
         }
     }
 }
