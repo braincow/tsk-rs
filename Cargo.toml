@@ -34,7 +34,7 @@ required-features = ["notify"]
 [dependencies]
 color-eyre = "0.6.2"
 bat = { version = "0.23.0", default-features = false, features = ["regex-fancy"] }
-chrono = { version = "0.4.26", features = ["serde"] }
+chrono = { version = "0.4.28", features = ["serde"] }
 clap = { version = "4.1.11", features = ["derive", "string", "env"] }
 cli-table = "0.4.7"
 config = "0.13.3"
