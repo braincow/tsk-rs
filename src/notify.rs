@@ -72,7 +72,7 @@ impl FilesystemMonitor {
             let (tx, rx) = mpsc::channel();
 
             // No specific tickrate, max debounce time 2 seconds
-            let mut debouncer = new_debouncer(Duration::from_secs(2), None, tx).unwrap();
+            let mut debouncer = new_debouncer(Duration::from_secs(2), tx).unwrap();
 
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
