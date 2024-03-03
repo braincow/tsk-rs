@@ -41,7 +41,7 @@ config = "0.14.0"
 directories = "5.0.1"
 dotenv = "0.15.0"
 edit = "0.1.5"
-file-lock = "2.1.9"
+file-lock = "2.1.11"
 glob = "0.3.1"
 hhmmss = "0.1.0"
 markdown = { version = "1.0.0-alpha.12", optional = true }
