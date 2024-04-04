@@ -1,12 +1,13 @@
 [package]
 name = "tsk-rs"
-version = "0.2.15"
+version = "0.2.16"
 edition = "2021"
 authors = ["Antti Peltonen <antti.peltonen@iki.fi>"]
 description = "A task manager"
 readme = "README.md"
 license = "MIT"
 license-file = "LICENSE"
+repository = "https://github.com/braincow/tsk-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
